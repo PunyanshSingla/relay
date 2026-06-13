@@ -1,17 +1,42 @@
 "use client";
 
-import { Search, Bell, Command } from "lucide-react";
+import { Search, Bell, Command, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 import { UserMenu } from "./user-menu";
 
 interface TopBarProps {
   onCommandPaletteOpen?: () => void;
+  sidebarCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function TopBar({ onCommandPaletteOpen }: TopBarProps) {
+export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollapse }: TopBarProps) {
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-4 lg:px-6">
+      {/* Sidebar toggle */}
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-9 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={onToggleCollapse}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="size-4" />
+            ) : (
+              <PanelLeftClose className="size-4" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={4}>
+          {sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        </TooltipContent>
+      </Tooltip>
+
       {/* Search bar */}
       <div className="flex-1 max-w-xl">
         <button

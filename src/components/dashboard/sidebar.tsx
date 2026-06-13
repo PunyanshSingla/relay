@@ -12,9 +12,12 @@ import {
   Mail,
   Clock,
   Command,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Logo } from "@/components/common/logo";
 import { cn } from "@/lib/utils";
 
@@ -41,9 +44,57 @@ const aiItems: NavItem[] = [
 
 interface SidebarProps {
   collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function Sidebar({ collapsed = false }: SidebarProps) {
+function NavLink({
+  item,
+  isActive,
+  collapsed,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  collapsed: boolean;
+}) {
+  const link = (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      <item.icon className={cn("size-4 shrink-0", isActive && "text-primary")} />
+      {!collapsed && (
+        <>
+          <span className="flex-1">{item.label}</span>
+          {item.badge && (
+            <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-xs">
+              {item.badge}
+            </Badge>
+          )}
+        </>
+      )}
+    </Link>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          {item.label}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return link;
+}
+
+export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -77,28 +128,12 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
-              <Link
+              <NavLink
                 key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <item.icon className={cn("size-4 shrink-0", isActive && "text-primary")} />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1">{item.label}</span>
-                    {item.badge && (
-                      <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-xs">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </>
-                )}
-              </Link>
+                item={item}
+                isActive={isActive}
+                collapsed={collapsed}
+              />
             );
           })}
         </nav>
@@ -114,19 +149,12 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
             {aiItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
-                <Link
+                <NavLink
                   key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <item.icon className={cn("size-4 shrink-0", isActive && "text-primary")} />
-                  {!collapsed && <span className="flex-1">{item.label}</span>}
-                </Link>
+                  item={item}
+                  isActive={isActive}
+                  collapsed={collapsed}
+                />
               );
             })}
           </nav>
@@ -155,6 +183,19 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           </div>
         </div>
       )}
+
+      {/* Edge handle - visible on hover, positioned on right border */}
+      <button
+        onClick={onToggleCollapse}
+        className="absolute top-1/2 -right-3 z-10 flex h-10 w-3 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground opacity-0 transition-all hover:opacity-100 hover:w-5 hover:shadow-sm"
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {collapsed ? (
+          <PanelLeftOpen className="size-3" />
+        ) : (
+          <PanelLeftClose className="size-3" />
+        )}
+      </button>
     </aside>
   );
 }
