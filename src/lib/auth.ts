@@ -1,25 +1,10 @@
-import { PrismaClient } from "../generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { dash } from "@better-auth/infra";
 import { sendVerificationEmail, sendResetPasswordEmail } from "./email/resend";
+import { prisma } from "./prisma";
 
 const isProduction = process.env.NODE_ENV === "production";
-
-const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient;
-  pgPool?: Pool;
-};
-
-const pool = globalForPrisma.pgPool || new Pool({ connectionString: process.env.DATABASE_URL });
-if (!isProduction) globalForPrisma.pgPool = pool;
-
-const adapter = new PrismaPg(pool);
-
-const client = globalForPrisma.prisma || new PrismaClient({ adapter });
-if (!isProduction) globalForPrisma.prisma = client;
 
 /**
  * Safer URL rewriting using URL API
@@ -36,7 +21,7 @@ function rewriteUrl(url: string, from: string, to: string): string {
 }
 
 export const auth = betterAuth({
-  database: prismaAdapter(client, { provider: "postgresql" }),
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000/",
 
   // Session configuration
