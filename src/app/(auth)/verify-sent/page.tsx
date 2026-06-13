@@ -7,14 +7,15 @@ import { Mail, Loader2, ArrowRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Logo } from "@/components/common/logo";
+import { authClient } from "@/lib/auth-client";
 
 function VerifySentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-
+  
   const email = searchParams.get("email") || "your email address";
   const type = searchParams.get("type") || "signup";
-
+  
   const [resendTimer, setResendTimer] = useState(30);
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
@@ -27,18 +28,37 @@ function VerifySentContent() {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  const handleResend = () => {
+  const isReset = type === "reset";
+
+  const handleResend = async () => {
     setIsResending(true);
     setResendStatus(null);
-
-    setTimeout(() => {
-      setIsResending(false);
+    
+    try {
+      if (isReset) {
+        const { error } = await authClient.requestPasswordReset({
+          email: email.toLowerCase(),
+          redirectTo: "/reset-password",
+        });
+        if (error) throw error;
+        setResendStatus("Password reset link resent successfully. Check your inbox and console.");
+      } else {
+        const { error } = await authClient.sendVerificationEmail({
+          email: email.toLowerCase(),
+          callbackURL: "/dashboard",
+        });
+        if (error) throw error;
+        setResendStatus("Verification email resent successfully. Check your inbox and console.");
+      }
       setResendTimer(30);
-      setResendStatus("Verification email resent successfully.");
-    }, 1500);
+    } catch (err: unknown) {
+      console.error("Resend error:", err);
+      const message = err instanceof Error ? err.message : "Failed to resend. Please try again.";
+      setResendStatus(message);
+    } finally {
+      setIsResending(false);
+    }
   };
-
-  const isReset = type === "reset";
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12">
@@ -56,10 +76,7 @@ function VerifySentContent() {
       <div className="relative z-10 w-full max-w-md">
         {/* Logo and Branding */}
         <div className="mb-8 flex justify-center">
-          <Link href="/" className="flex items-center gap-2">
-            <Logo />
-            <span className="text-xl font-semibold tracking-tight">Relay</span>
-          </Link>
+          <Logo />
         </div>
 
         {/* Header Text */}
@@ -68,9 +85,9 @@ function VerifySentContent() {
             {isReset ? "Reset link sent" : "Check your inbox"}
           </h1>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            {isReset
+            {isReset 
               ? `We&apos;ve sent a password reset link to ${email}.`
-              : `We&apos;ve sent a verification code to ${email}.`
+              : `We&apos;ve sent a verification link to ${email}.`
             }
           </p>
         </div>
@@ -86,7 +103,7 @@ function VerifySentContent() {
             </div>
 
             {resendStatus && (
-              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-center text-xs text-emerald-500 font-medium">
+              <div className="rounded-lg border border-border bg-surface/30 p-3 text-center text-xs text-muted-foreground font-medium">
                 {resendStatus}
               </div>
             )}

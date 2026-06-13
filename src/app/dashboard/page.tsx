@@ -1,7 +1,27 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, LogOut, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await authClient.signOut();
+      router.push("/login");
+    } catch (err) {
+      console.error("Sign out error:", err);
+      setIsSigningOut(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center bg-background text-foreground overflow-hidden">
       {/* Background decoration */}
@@ -19,7 +39,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-sm max-w-xs mx-auto">
           Welcome to your workspace. You have successfully authenticated and entered the Relay AI command center.
         </p>
-        <div className="pt-4">
+        <div className="pt-4 flex flex-col items-center gap-4">
           <Link
             href="/"
             className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors group"
@@ -27,6 +47,21 @@ export default function DashboardPage() {
             <ArrowLeft className="size-3.5 transition-transform group-hover:-translate-x-0.5" />
             Back to landing page
           </Link>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            className="border-border bg-background hover:bg-surface text-muted-foreground hover:text-foreground"
+          >
+            {isSigningOut ? (
+              <Loader2 className="size-3.5 animate-spin mr-2" />
+            ) : (
+              <LogOut className="size-3.5 mr-2" />
+            )}
+            Sign out
+          </Button>
         </div>
       </div>
     </div>

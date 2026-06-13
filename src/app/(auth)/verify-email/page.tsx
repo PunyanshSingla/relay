@@ -1,33 +1,60 @@
 "use client";
 
-import React, { useState, useRef, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Logo } from "@/components/common/logo";
+import { authClient } from "@/lib/auth-client";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const email = searchParams.get("email") || "your email address";
-  const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
+  const token = searchParams.get("token") || "";
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(30);
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
+  // Auto-verify if token is present in URL
   useEffect(() => {
-    // Focus first input on mount
-    if (inputRefs.current[0]) {
-      inputRefs.current[0].focus();
+    const autoVerifyToken = async (verifyToken: string) => {
+      setIsLoading(true);
+      setErrorMessage(null);
+      try {
+        const { error: verifyError } = await authClient.verifyEmail({
+          query: { token: verifyToken },
+        });
+
+        if (verifyError) {
+          setErrorMessage(
+            verifyError.message || "Failed to verify email. The link may be expired."
+          );
+          return;
+        }
+
+        setIsSuccess(true);
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 2000);
+      } catch (err) {
+        console.error("Auto verify unexpected error:", err);
+        setErrorMessage("An unexpected error occurred during email verification.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (token) {
+      autoVerifyToken(token);
     }
-  }, []);
+  }, [token, router]);
 
   useEffect(() => {
     if (resendTimer === 0) return;
@@ -37,88 +64,30 @@ function VerifyEmailContent() {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  const handleChange = (index: number, value: string) => {
-    setErrorMessage(null);
-    const cleanedValue = value.replace(/[^0-9]/g, ""); // Allow digits only
-    if (!cleanedValue) {
-      const newOtp = [...otp];
-      newOtp[index] = "";
-      setOtp(newOtp);
-      return;
-    }
-
-    const digit = cleanedValue[cleanedValue.length - 1];
-    const newOtp = [...otp];
-    newOtp[index] = digit;
-    setOtp(newOtp);
-
-    // Auto-focus next input
-    if (index < 5 && digit) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace") {
-      setErrorMessage(null);
-      if (!otp[index] && index > 0) {
-        const newOtp = [...otp];
-        newOtp[index - 1] = "";
-        setOtp(newOtp);
-        inputRefs.current[index - 1]?.focus();
-      } else {
-        const newOtp = [...otp];
-        newOtp[index] = "";
-        setOtp(newOtp);
-      }
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    setErrorMessage(null);
-    const pastedData = e.clipboardData.getData("text").trim();
-    if (!/^\d{6}$/.test(pastedData)) {
-      setErrorMessage("Please paste a valid 6-digit numeric code.");
-      return;
-    }
-
-    const digits = pastedData.split("");
-    setOtp(digits);
-    inputRefs.current[5]?.focus();
-  };
-
-  const handleResend = () => {
+  const handleResend = async () => {
     setIsResending(true);
     setResendStatus(null);
 
-    setTimeout(() => {
-      setIsResending(false);
-      setResendTimer(30);
-      setResendStatus("New verification code sent.");
-    }, 1500);
-  };
+    try {
+      const { error: resendError } = await authClient.sendVerificationEmail({
+        email,
+        callbackURL: "/dashboard",
+      });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = otp.join("");
-    if (code.length !== 6) return;
-
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    setTimeout(() => {
-      setIsLoading(false);
-      // Simulate verification check
-      if (code === "123456" || code === "000000" || code.length === 6) {
-        router.push("/dashboard");
-      } else {
-        setErrorMessage("Invalid code. Please try again.");
+      if (resendError) {
+        setErrorMessage(resendError.message || "Failed to resend verification email.");
+        return;
       }
-    }, 1800);
-  };
 
-  const isComplete = otp.every((digit) => digit !== "");
+      setResendTimer(30);
+      setResendStatus("New verification link sent. Check your inbox and terminal console.");
+    } catch (err) {
+      console.error("Resend verification unexpected error:", err);
+      setErrorMessage("Failed to resend verification email.");
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12">
@@ -136,90 +105,86 @@ function VerifyEmailContent() {
       <div className="relative z-10 w-full max-w-md">
         {/* Logo and Branding */}
         <div className="mb-8 flex justify-center">
-          <Link href="/" className="flex items-center gap-2">
-            <Logo />
-            <span className="text-xl font-semibold tracking-tight">Relay</span>
-          </Link>
+          <Logo />
         </div>
 
         {/* Header Text */}
         <div className="mb-8 text-center space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Verify your email
+            {isSuccess ? "Verification successful" : "Verify your email"}
           </h1>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-            We&apos;ve sent a 6-digit code to <span className="font-semibold text-foreground/80">{email}</span>.
+            {token
+              ? "Validating your verification link..."
+              : `We&apos;ve sent a verification link to ${email}.`}
           </p>
         </div>
 
         {/* Card Component */}
         <Card className="border-border">
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {errorMessage && (
-                <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-                  <AlertCircle className="size-4 shrink-0" />
-                  <span>{errorMessage}</span>
+            {isSuccess ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-4 py-4 animate-in fade-in zoom-in-95 duration-200">
+                <div className="relative flex size-14 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10">
+                  <ShieldCheck className="size-8 text-emerald-500" />
+                  <div className="absolute -inset-1 rounded-full bg-emerald-500/15 blur opacity-50" />
                 </div>
-              )}
+                <p className="text-sm text-muted-foreground">
+                  Your email has been verified. Redirecting you to your workspace...
+                </p>
+                <Loader2 className="size-4 animate-spin text-primary mt-2" />
+              </div>
+            ) : token && isLoading ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-4 py-8">
+                <Loader2 className="size-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Completing verification, please wait...
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {errorMessage && (
+                  <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+                    <AlertCircle className="size-4 shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
 
-              {resendStatus && (
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-center text-xs text-emerald-500 font-medium">
-                  {resendStatus}
+                {resendStatus && (
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-center text-xs text-emerald-500 font-medium">
+                    {resendStatus}
+                  </div>
+                )}
+
+                <div className="space-y-4 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Click the verification link in your email to continue. The
+                    link will expire in 24 hours.
+                  </p>
                 </div>
-              )}
-
-              {/* 6 OTP Fields */}
-              <div className="flex justify-between gap-2" onPaste={handlePaste}>
-                {otp.map((digit, index) => (
-                  <input
-                    key={index}
-                    ref={(el) => {
-                      inputRefs.current[index] = el;
-                    }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    disabled={isLoading}
-                    onChange={(e) => handleChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    className="size-11 rounded-lg border border-border bg-background text-center text-lg font-bold transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none select-all disabled:opacity-50"
-                  />
-                ))}
               </div>
+            )}
 
-              <Button
-                type="submit"
-                disabled={isLoading || !isComplete}
-                className="h-11 w-full bg-primary text-primary-foreground hover:bg-primary"
-              >
-                {isLoading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  "Verify & Continue"
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-6 flex flex-col items-center gap-3 text-xs text-muted-foreground">
-              <div>
-                Didn&apos;t get the code?{" "}
-                {resendTimer > 0 ? (
-                  <span className="font-semibold text-primary">
-                    Resend in {resendTimer}s
-                  </span>
-                ) : (
-                  <button
-                    onClick={handleResend}
-                    disabled={isResending}
-                    className="font-semibold text-primary hover:underline focus:outline-none"
-                  >
-                    {isResending ? "Resending..." : "Resend code"}
-                  </button>
-                )}
+            {!isSuccess && (
+              <div className="mt-6 flex flex-col items-center gap-3 text-xs text-muted-foreground border-t border-border pt-4">
+                <div>
+                  Didn&apos;t get the email?{" "}
+                  {resendTimer > 0 ? (
+                    <span className="font-semibold text-primary">
+                      Resend in {resendTimer}s
+                    </span>
+                  ) : (
+                    <button
+                      onClick={handleResend}
+                      disabled={isResending}
+                      className="font-semibold text-primary hover:underline focus:outline-none"
+                    >
+                      {isResending ? "Resending..." : "Resend verification email"}
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 

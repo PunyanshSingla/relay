@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/common/logo"
-// import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,50 +20,53 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
-    // e.preventDefault();
-    // setError("");
-    // setLoading(true);
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    // try {
-    //   const { error: signInError } = await authClient.signIn.email({
-    //     email: email.toLowerCase(),
-    //     password,
-    //     callbackURL: "/dashboard",
-    //   });
+    try {
+      const { error: signInError } = await authClient.signIn.email({
+        email: email.toLowerCase(),
+        password,
+        callbackURL: "/dashboard",
+      });
 
-    //   if (signInError) {
-    //     if (signInError.status === 403) {
-    //       setError("Please verify your email address before signing in.");
-    //     } else {
-    //       setError(signInError.message || "Invalid email or password.");
-    //     }
-    //     return;
-    //   }
+      if (signInError) {
+        if (signInError.status === 403) {
+          setError("Please verify your email address before signing in.");
+        } else {
+          setError(signInError.message || "Invalid email or password.");
+        }
+        return;
+      }
 
-    //   router.push("/dashboard");
-    // } catch {
-    //   setError("An unexpected error occurred. Please try again.");
-    // } finally {
-    //   setLoading(false);
-    // 
-    console.log("handle email sign in function is called")
+      router.push("/dashboard");
+    } catch (err) {
+      console.error("Sign in unexpected error:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
-    // setGoogleLoading(true);
-    // setError("");
+    setGoogleLoading(true);
+    setError("");
 
-    // try {
-    //   await authClient.signIn.social({
-    //     provider: "google",
-    //     callbackURL: "/dashboard",
-    //   });
-    // } catch {
-    //   setError("Google sign-in failed. Please try again.");
-    //   setGoogleLoading(false);
-    // }
-    console.log("handle google sign in function is called")
-
+    try {
+      const { error: socialError } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/dashboard",
+      });
+      if (socialError) {
+        setError(socialError.message || "Google sign-in failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("Google login unexpected error:", err);
+      setError("Google sign-in failed. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (

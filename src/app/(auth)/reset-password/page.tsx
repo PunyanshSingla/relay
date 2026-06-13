@@ -1,58 +1,109 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowRight, Mail, Lock, User, Loader2 } from "lucide-react";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Lock, Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/common/logo";
-// import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 
-export default function RegisterPage() {
+function ResetPasswordContent() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") || "";
+
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const [countdown, setCountdown] = useState(4);
 
-  const handleEmailSignUp = async (e: React.FormEvent) => {
-    // e.preventDefault();
-    // setError("");
-    // setLoading(true);
+  // Password strength logic
+  const passwordStrength = useMemo(() => {
+    if (!password) return { score: 0, label: "", colorClass: "bg-muted" };
+    
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+    if (/\d/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
 
-    // try {
-    //   const { error: signUpError } = await authClient.signUp.email({
-    //     name,
-    //     email: email.toLowerCase(),
-    //     password,
-    //     callbackURL: "/dashboard",
-    //   });
+    let label = "Weak";
+    let colorClass = "bg-destructive";
+    if (score === 3) {
+      label = "Medium";
+      colorClass = "bg-amber-500";
+    } else if (score === 4) {
+      label = "Strong";
+      colorClass = "bg-emerald-500";
+    }
 
-    //   if (signUpError) {
-    //     setError(signUpError.message || "Something went wrong. Please try again.");
-    //     return;
-    //   }
+    return { score, label, colorClass };
+  }, [password]);
 
-    //   router.push(`/verify-email?email=${encodeURIComponent(email.toLowerCase())}`);
-    // } catch {
-    //   setError("An unexpected error occurred. Please try again.");
-    // } finally {
-    //   setLoading(false);
-    // }
-  };
+  // Handle countdown redirect on success
+  useEffect(() => {
+    if (!isSuccess) return;
+    if (countdown === 0) {
+      router.push("/login");
+      return;
+    }
 
-  const handleGoogleSignIn = async () => {
-    // 
-    console.log("clicked handleGoogleSignIn");
+    const timer = setTimeout(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isSuccess, countdown, router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!token) {
+      setError("Reset token is missing from the URL. Please request a new link.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (passwordStrength.score < 3) {
+      setError("Please select a stronger password.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error: resetError } = await authClient.resetPassword({
+        newPassword: password,
+        token,
+      });
+
+      if (resetError) {
+        setError(resetError.message || "Failed to reset password. The link may have expired.");
+        return;
+      }
+
+      setIsSuccess(true);
+    } catch (err) {
+      console.error("Reset password unexpected error:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      {/* Background patterns */}
       <div className="pointer-events-none absolute inset-0 dot-bg" aria-hidden />
       <div
         className="pointer-events-none absolute left-1/2 top-0 h-[600px] w-[800px] -translate-x-1/2"
@@ -64,149 +115,163 @@ export default function RegisterPage() {
       />
 
       <div className="relative z-10 w-full max-w-md">
+        {/* Logo and Branding */}
         <div className="mb-8 flex justify-center">
-          <Link href="/" className="flex items-center gap-2">
-            <Logo />
-            <span className="text-xl font-semibold tracking-tight">Relay</span>
-          </Link>
+          <Logo />
         </div>
 
-        <div className="mb-8 text-center">
+        {/* Header Text */}
+        <div className="mb-8 text-center space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Create your account
+            Set new password
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Start commanding your inbox in seconds.
+          <p className="text-sm text-muted-foreground">
+            {isSuccess ? "Your password has been reset." : "Choose a strong password for your account."}
           </p>
         </div>
 
+        {/* Card Component */}
         <Card className="border-border">
           <CardContent className="p-6">
-            <Button
-              variant="outline"
-              className="w-full border-border bg-background hover:bg-surface"
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading || loading}
-            >
-              {googleLoading ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <svg className="mr-2 size-4" viewBox="0 0 24 24">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                </svg>
-              )}
-              Continue with Google
-            </Button>
-
-            <div className="relative my-6">
-              <Separator className="bg-border" />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-                or
-              </span>
-            </div>
-
-            {error && (
-              <div className="mb-4 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleEmailSignUp} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium text-foreground/85">
-                  Full name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="h-11 border-border bg-background pl-10"
-                  />
+            {isSuccess ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-6 py-4 animate-in fade-in zoom-in-95 duration-200">
+                <div className="relative flex size-14 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10">
+                  <ShieldCheck className="size-8 text-emerald-500" />
+                  <div className="absolute -inset-1 rounded-full bg-emerald-500/15 blur opacity-50" />
                 </div>
-              </div>
+                
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Your password has been successfully reset. You can now use your new credentials to sign in.
+                </p>
 
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-foreground/85">
-                  Email address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-11 border-border bg-background pl-10"
-                  />
+                <div className="text-xs text-muted-foreground/80 font-medium">
+                  Redirecting to login in <span className="text-primary font-bold">{countdown}s</span>...
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-foreground/85">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Min. 8 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    className="h-11 border-border bg-background pl-10"
-                  />
-                </div>
+                <Button
+                  asChild
+                  className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary"
+                >
+                  <Link href="/login">Sign In Now</Link>
+                </Button>
               </div>
-
-              <Button
-                type="submit"
-                disabled={loading || googleLoading}
-                className="h-11 w-full bg-primary text-primary-foreground hover:bg-primary"
-              >
-                {loading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <>
-                    Create account
-                    <ArrowRight className="size-4" />
-                  </>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+                    <AlertCircle className="size-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
                 )}
-              </Button>
-            </form>
 
-            <p className="mt-4 text-center text-xs text-muted-foreground">
-              By signing up, you agree to our{" "}
-              <Link href="#" className="text-primary hover:underline">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="#" className="text-primary hover:underline">
-                Privacy Policy
-              </Link>
-              .
-            </p>
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium text-foreground/85">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Min. 8 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className="h-11 border-border bg-background pl-10"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* Password Strength Indicator */}
+                  {password && (
+                    <div className="space-y-1.5 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex justify-between items-center text-[10px] uppercase font-semibold text-muted-foreground">
+                        <span>Password Strength</span>
+                        <span className="font-bold">{passwordStrength.label}</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[1, 2, 3, 4].map((step) => (
+                          <div
+                            key={step}
+                            className={`h-1 rounded-full transition-all duration-300 ${
+                              step <= passwordStrength.score
+                                ? passwordStrength.colorClass
+                                : "bg-border dark:bg-border/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground/85">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="Verify password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      className="h-11 border-border bg-background pl-10"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading || !password || !confirmPassword}
+                  className="h-11 w-full bg-primary text-primary-foreground hover:bg-primary"
+                >
+                  {loading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <>
+                      Reset Password
+                      <ArrowRight className="size-4" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium text-primary hover:underline">
-            Sign in
-          </Link>
-        </p>
+        {/* Footer Link */}
+        {!isSuccess && (
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Back to sign in
+            </Link>
+          </p>
+        )}
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background px-4">
+          <div className="flex flex-col items-center justify-center p-8 space-y-4">
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground font-medium">
+              Loading password reset configuration...
+            </span>
+          </div>
+        </div>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

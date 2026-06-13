@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Loader2, KeyRound } from "lucide-react";
+import { ArrowLeft, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Logo } from "@/components/common/logo";
+import { authClient } from "@/lib/auth-client";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -22,11 +23,24 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError("");
 
-    // Simulate sending password reset email
-    setTimeout(() => {
+    try {
+      const { error: resetError } = await authClient.requestPasswordReset({
+        email: email.toLowerCase(),
+        redirectTo: "/reset-password",
+      });
+
+      if (resetError) {
+        setError(resetError.message || "Failed to send reset link. Please verify your email.");
+        return;
+      }
+
+      router.push(`/verify-sent?type=reset&email=${encodeURIComponent(email.toLowerCase())}`);
+    } catch (err) {
+      console.error("Forgot password unexpected error:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
       setLoading(false);
-      router.push(`/verify-sent?type=reset&email=${encodeURIComponent(email)}`);
-    }, 1500);
+    }
   };
 
   return (

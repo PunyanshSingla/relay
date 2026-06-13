@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/common/logo";
-// import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -21,47 +21,50 @@ export default function RegisterPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
-    // e.preventDefault();
-    // setError("");
-    // setLoading(true);
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    // try {
-    //   const { error: signUpError } = await authClient.signUp.email({
-    //     name,
-    //     email: email.toLowerCase(),
-    //     password,
-    //     callbackURL: "/dashboard",
-    //   });
+    try {
+      const { error: signUpError } = await authClient.signUp.email({
+        name,
+        email: email.toLowerCase(),
+        password,
+        callbackURL: "/dashboard",
+      });
 
-    //   if (signUpError) {
-    //     setError(signUpError.message || "Something went wrong. Please try again.");
-    //     return;
-    //   }
+      if (signUpError) {
+        setError(signUpError.message || "Something went wrong. Please try again.");
+        return;
+      }
 
-    //   router.push(`/verify-email?email=${encodeURIComponent(email.toLowerCase())}`);
-    // } catch {
-    //   setError("An unexpected error occurred. Please try again.");
-    // } finally {
-    //   setLoading(false);
-    // }
-    console.log("handleEmailSignUp is called")
+      router.push(`/verify-sent?email=${encodeURIComponent(email.toLowerCase())}`);
+    } catch (err) {
+      console.error("Sign up unexpected error:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
-    // setGoogleLoading(true);
-    // setError("");
+    setGoogleLoading(true);
+    setError("");
 
-    // try {
-    //   await authClient.signIn.social({
-    //     provider: "google",
-    //     callbackURL: "/dashboard",
-    //   });
-    // } catch {
-    //   setError("Google sign-in failed. Please try again.");
-    //   setGoogleLoading(false);
-    // }
-    console.log("handleGoogleSignIn is called")
-
+    try {
+      const { error: socialError } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/dashboard",
+      });
+      if (socialError) {
+        setError(socialError.message || "Google sign-in failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("Google sign-in unexpected error:", err);
+      setError("Google sign-in failed. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
