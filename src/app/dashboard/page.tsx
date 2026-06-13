@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, LogOut, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/common/theme-toggle";
 import { authClient } from "@/lib/auth-client";
 
 export default function DashboardPage() {
@@ -24,6 +25,11 @@ export default function DashboardPage() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center bg-background text-foreground overflow-hidden">
+      {/* Theme toggle - top right */}
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
+
       {/* Background decoration */}
       <div className="pointer-events-none absolute inset-0 dot-bg opacity-50" aria-hidden />
       <div
