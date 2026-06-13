@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Routes that require authentication
-const protectedRoutes = ["/dashboard"];
+const protectedRoutes = ["/dashboard", "/onboarding"];
+
+// Routes that require Gmail connection
+const gmailRequiredRoutes = ["/dashboard"];
 
 // Auth routes (redirect to dashboard if already authenticated)
 const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password"];
@@ -35,12 +38,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for session cookie
-  // Better Auth stores session in a cookie named after the instance (default: "better-auth.session_token")
-  const sessionCookie = request.cookies.get("better-auth.session_token") ||
-    request.cookies.get("__Secure-better-auth.session_token");
-
-  const hasSession = !!sessionCookie?.value;
+  // Fast cookie check (Edge-compatible, no DB)
+  const hasSession =
+    !!request.cookies.get("better-auth.session_token")?.value ||
+    !!request.cookies.get("__Secure-better-auth.session_token")?.value;
 
   // Redirect unauthenticated users to login
   if (isProtectedRoute && !hasSession) {
@@ -54,19 +55,31 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
+  // Check Gmail connection status for routes that require it
+  const requiresGmail = gmailRequiredRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  if (requiresGmail && hasSession) {
+    const gmailConnected = request.cookies.get("gmail_connected")?.value === "true";
+    const isOnboarding = pathname.startsWith("/onboarding");
+
+    // If Gmail not connected and not already on onboarding, redirect
+    if (!gmailConnected && !isOnboarding) {
+      return NextResponse.redirect(new URL("/onboarding", request.url));
+    }
+
+    // If Gmail connected and on onboarding, redirect to dashboard
+    if (gmailConnected && isOnboarding) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico, sitemap.xml, robots.txt
-     * - Public assets (.svg, .png, etc.)
-     */
     "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.svg$|.*\\.png$).*)",
   ],
 };
