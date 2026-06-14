@@ -1,4 +1,8 @@
-export function formatDistanceToNow(date: Date): string {
+export function formatDistanceToNow(dateInput: Date | string | number | null | undefined): string {
+  if (!dateInput) return "";
+  const date = typeof dateInput === "string" || typeof dateInput === "number" ? new Date(dateInput) : dateInput;
+  if (isNaN(date.getTime())) return "";
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSeconds = Math.floor(diffMs / 1000);

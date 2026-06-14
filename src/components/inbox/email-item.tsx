@@ -3,7 +3,7 @@
 import { Star, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { Email, Priority, Category } from "@/types/email";
+import type { Email, Priority } from "@/types/email";
 import { formatDistanceToNow } from "@/lib/format-date";
 
 const PRIORITY_CONFIG: Record<Priority, { dot: string; badge: string; label: string }> = {
@@ -12,15 +12,7 @@ const PRIORITY_CONFIG: Record<Priority, { dot: string; badge: string; label: str
   P3: { dot: "bg-gray-400", badge: "bg-gray-500/10 text-gray-500 border-gray-500/20", label: "P3" },
 };
 
-const CATEGORY_CONFIG: Record<Category, { label: string; className: string }> = {
-  action_needed: { label: "Action Needed", className: "bg-orange-500/10 text-orange-500" },
-  meeting: { label: "Meeting", className: "bg-blue-500/10 text-blue-500" },
-  follow_up: { label: "Follow Up", className: "bg-purple-500/10 text-purple-500" },
-  fyi: { label: "FYI", className: "bg-gray-500/10 text-gray-500" },
-  newsletter: { label: "Newsletter", className: "bg-teal-500/10 text-teal-500" },
-  promotion: { label: "Promotion", className: "bg-pink-500/10 text-pink-500" },
-  social: { label: "Social", className: "bg-indigo-500/10 text-indigo-500" },
-};
+
 
 function getInitials(name: string): string {
   return name
@@ -54,8 +46,7 @@ interface EmailItemProps {
 }
 
 export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailItemProps) {
-  const priorityConfig = PRIORITY_CONFIG[email.priority];
-  const categoryConfig = CATEGORY_CONFIG[email.category];
+  const priorityConfig = email.priority ? PRIORITY_CONFIG[email.priority] : null;
   const avatarColor = getAvatarColor(email.from.name);
   const timeAgo = formatDistanceToNow(email.timestamp);
 
@@ -75,7 +66,9 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
         {!email.read && (
           <div className="size-2 rounded-full bg-primary shrink-0" />
         )}
-        <div className={cn("size-2 rounded-full shrink-0", priorityConfig.dot)} />
+        {priorityConfig && (
+          <div className={cn("size-2 rounded-full shrink-0", priorityConfig.dot)} />
+        )}
       </div>
 
       {/* Avatar */}
@@ -125,20 +118,14 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
             className={cn("size-4", email.starred && "fill-amber-500 text-amber-500")}
           />
         </button>
-        <Badge
-          variant="outline"
-          className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", priorityConfig.badge)}
-        >
-          {priorityConfig.label}
-        </Badge>
-        <span
-          className={cn(
-            "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-            categoryConfig.className
-          )}
-        >
-          {categoryConfig.label}
-        </span>
+        {priorityConfig && (
+          <Badge
+            variant="outline"
+            className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", priorityConfig.badge)}
+          >
+            {priorityConfig.label}
+          </Badge>
+        )}
         {email.hasAttachment && (
           <Paperclip className="size-3 text-muted-foreground" />
         )}
