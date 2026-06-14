@@ -29,6 +29,7 @@ export interface Email {
   subject: string;
   preview: string;
   body: string;
+  bodyHtml?: string;
   timestamp: Date;
   read: boolean;
   starred: boolean;

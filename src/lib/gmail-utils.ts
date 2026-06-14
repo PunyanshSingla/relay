@@ -48,19 +48,26 @@ function parseEmailAddresses(raw: string): EmailAddress[] {
   });
 }
 
+function decodeBase64Url(data: string): string {
+  const binary = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
 function extractBody(payload: GmailPayload | undefined): string {
   if (!payload) return "";
 
-  // Simple text/plain body
   if (payload.mimeType === "text/plain" && payload.body?.data) {
-    return atob(payload.body.data.replace(/-/g, "+").replace(/_/g, "/"));
+    return decodeBase64Url(payload.body.data);
   }
 
-  // If it has parts, recurse
   if (payload.parts) {
     for (const part of payload.parts) {
       if (part.mimeType === "text/plain" && part.body?.data) {
-        return atob(part.body.data.replace(/-/g, "+").replace(/_/g, "/"));
+        return decodeBase64Url(part.body.data);
       }
       const nested = extractBody(part);
       if (nested) return nested;
@@ -68,6 +75,26 @@ function extractBody(payload: GmailPayload | undefined): string {
   }
 
   return "";
+}
+
+function extractHtmlBody(payload: GmailPayload | undefined): string | undefined {
+  if (!payload) return undefined;
+
+  if (payload.mimeType === "text/html" && payload.body?.data) {
+    return decodeBase64Url(payload.body.data);
+  }
+
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      if (part.mimeType === "text/html" && part.body?.data) {
+        return decodeBase64Url(part.body.data);
+      }
+      const nested = extractHtmlBody(part);
+      if (nested) return nested;
+    }
+  }
+
+  return undefined;
 }
 
 function mapLabelIds(labelIds: string[]): {
@@ -89,6 +116,7 @@ export function mapGmailMessageToEmail(message: GmailMessage): Email {
   const subject = getHeaderValue(headers, "Subject");
   const labels = mapLabelIds(message.labelIds ?? []);
   const body = extractBody(message.payload);
+  const bodyHtml = extractHtmlBody(message.payload);
 
   const fromAddresses = parseEmailAddresses(fromRaw);
   const from: EmailAddress =
@@ -105,6 +133,7 @@ export function mapGmailMessageToEmail(message: GmailMessage): Email {
     subject: subject || "(No subject)",
     preview: message.snippet || "",
     body,
+    bodyHtml,
     timestamp: new Date(
       typeof message.internalDate === "string"
         ? parseInt(message.internalDate, 10)

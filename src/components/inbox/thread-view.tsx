@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useCallback } from "react";
 import {
   Reply,
   Forward,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import DOMPurify from "dompurify";
 import { AIReplyPanel } from "./ai-reply-panel";
 import type { Email, Priority } from "@/types/email";
 import { formatDistanceToNow } from "@/lib/format-date";
@@ -53,6 +55,15 @@ interface ThreadViewProps {
 export function ThreadView({ email, onToggleStar }: ThreadViewProps) {
   const avatarColor = getAvatarColor(email.from.name);
   const priorityColor = PRIORITY_COLORS[email.priority];
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const handleIframeLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentDocument?.body) {
+      const height = iframe.contentDocument.body.scrollHeight;
+      iframe.style.height = Math.max(height + 2, 200) + "px";
+    }
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -122,11 +133,22 @@ export function ThreadView({ email, onToggleStar }: ThreadViewProps) {
 
       {/* Email Body */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="prose prose-sm max-w-none dark:prose-invert">
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-            {email.body}
+        {email.bodyHtml ? (
+          <iframe
+            ref={iframeRef}
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1a1a1a;}img{max-width:100%;height:auto;}a{color:#0066cc;text-decoration:underline;}table{border-collapse:separate;}td,th{padding:4px 8px;}blockquote{border-left:3px solid #ddd;padding-left:12px;margin:0 0 0 0;color:#555;}</style></head><body>${DOMPurify.sanitize(email.bodyHtml, { ADD_TAGS: ["style"], ADD_ATTR: ["target", "style"] })}</body></html>`}
+            sandbox="allow-same-origin"
+            className="w-full border-0 bg-white"
+            style={{ minHeight: "200px" }}
+            onLoad={handleIframeLoad}
+          />
+        ) : (
+          <div className="prose prose-sm max-w-none dark:prose-invert">
+            <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              {email.body}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Attachments */}
         {email.hasAttachment && (
