@@ -24,7 +24,7 @@ export function UserMenu() {
   const { data: session } = authClient.useSession();
 
   const handleSignOut = async () => {
-    await authClient.signOut();
+    await fetch("/api/auth/signout", { method: "POST" });
     router.push("/login");
   };
 
