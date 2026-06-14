@@ -50,9 +50,12 @@ function getAvatarColor(name: string): string {
 interface ThreadViewProps {
   email: Email;
   onToggleStar: (id: string) => void;
+  onReply?: (email: Email) => void;
+  onReplyAll?: (email: Email) => void;
+  onForward?: (email: Email) => void;
 }
 
-export function ThreadView({ email, onToggleStar }: ThreadViewProps) {
+export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward }: ThreadViewProps) {
   const avatarColor = getAvatarColor(email.from.name);
   const priorityColor = PRIORITY_COLORS[email.priority];
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -188,7 +191,7 @@ export function ThreadView({ email, onToggleStar }: ThreadViewProps) {
       <div className="flex items-center gap-2 p-4 border-t border-border">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => onReply?.(email)}>
               <Reply className="size-4 mr-1" />
               Reply
             </Button>
@@ -197,7 +200,16 @@ export function ThreadView({ email, onToggleStar }: ThreadViewProps) {
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => onReplyAll?.(email)}>
+              <Reply className="size-4 mr-1" />
+              Reply All
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Reply All (Shift+R)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="sm" onClick={() => onForward?.(email)}>
               <Forward className="size-4 mr-1" />
               Forward
             </Button>

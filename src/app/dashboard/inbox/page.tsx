@@ -6,7 +6,6 @@ import { Pencil, RefreshCw, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterBar } from "@/components/inbox/filter-bar";
 import { EmailList } from "@/components/inbox/email-list";
-import { ComposeModal } from "@/components/inbox/compose-modal";
 import { cn } from "@/lib/utils";
 import type { Email, FilterOption } from "@/types/email";
 
@@ -25,9 +24,6 @@ export default function InboxPage() {
   const router = useRouter();
   const [emails, setEmails] = useState<Email[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [replyTo, setReplyTo] = useState<{ name: string; email: string; subject: string } | undefined>();
-
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageToken, setPageToken] = useState<string | null>(null);
@@ -164,7 +160,7 @@ export default function InboxPage() {
             Refresh
           </Button>
         </div>
-        <Button size="sm" onClick={() => setComposeOpen(true)}>
+        <Button size="sm" onClick={() => router.push("/dashboard/compose")}>
           <Pencil className="size-4 mr-1" />
           Compose
         </Button>
@@ -198,15 +194,6 @@ export default function InboxPage() {
         />
       </div>
 
-      {/* Compose modal */}
-      <ComposeModal
-        open={composeOpen}
-        onOpenChange={(open) => {
-          setComposeOpen(open);
-          if (!open) setReplyTo(undefined);
-        }}
-        replyTo={replyTo}
-      />
     </div>
   );
 }

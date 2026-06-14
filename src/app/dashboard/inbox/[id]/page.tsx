@@ -44,6 +44,18 @@ export default function EmailDetailPage() {
     );
   };
 
+  const handleReply = (e: Email) => {
+    router.push(`/dashboard/compose?mode=reply&replyToId=${e.id}`);
+  };
+
+  const handleReplyAll = (e: Email) => {
+    router.push(`/dashboard/compose?mode=replyAll&replyToId=${e.id}`);
+  };
+
+  const handleForward = (e: Email) => {
+    router.push(`/dashboard/compose?mode=forward&replyToId=${e.id}`);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col h-full">
@@ -91,7 +103,13 @@ export default function EmailDetailPage() {
         <span className="text-sm text-muted-foreground">Back to inbox</span>
       </div>
       <div className="flex-1 overflow-hidden">
-        <ThreadView email={email} onToggleStar={handleToggleStar} />
+        <ThreadView
+          email={email}
+          onToggleStar={handleToggleStar}
+          onReply={handleReply}
+          onReplyAll={handleReplyAll}
+          onForward={handleForward}
+        />
       </div>
     </div>
   );

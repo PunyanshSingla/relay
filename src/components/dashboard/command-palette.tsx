@@ -103,7 +103,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandGroup heading="Email Actions">
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/inbox?compose=true"))}
+            onSelect={() => runCommand(() => router.push("/dashboard/compose"))}
           >
             <Plus className="mr-2 size-4" />
             <span>Compose Email</span>

@@ -176,3 +176,76 @@ export function getGmailFilterQuery(
       return undefined;
   }
 }
+
+const CRLF = "\r\n";
+
+interface AttachmentData {
+  filename: string;
+  mimeType: string;
+  base64Content: string;
+}
+
+interface MimeMessageParams {
+  from: string;
+  to: string;
+  cc?: string;
+  bcc?: string;
+  subject: string;
+  htmlBody: string;
+  attachments?: AttachmentData[];
+  threadId?: string;
+}
+
+function generateBoundary(): string {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return `relay_${Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
+export function buildMimeMessage(params: MimeMessageParams): string {
+  const boundary = generateBoundary();
+  const lines: string[] = [];
+
+  lines.push(`From: ${params.from}`);
+  lines.push(`To: ${params.to}`);
+  if (params.cc) lines.push(`Cc: ${params.cc}`);
+  if (params.bcc) lines.push(`Bcc: ${params.bcc}`);
+  lines.push(`Subject: ${params.subject}`);
+  lines.push(`MIME-Version: 1.0`);
+
+  const hasAttachments = params.attachments && params.attachments.length > 0;
+
+  if (hasAttachments) {
+    lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+    lines.push(CRLF);
+    lines.push(`--${boundary}`);
+  }
+
+  lines.push(`Content-Type: text/html; charset="UTF-8"`);
+  lines.push(CRLF);
+  lines.push(params.htmlBody);
+  lines.push(CRLF);
+
+  if (hasAttachments) {
+    for (const att of params.attachments!) {
+      lines.push(`--${boundary}`);
+      lines.push(`Content-Type: ${att.mimeType}; name="${att.filename}"`);
+      lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
+      lines.push(`Content-Transfer-Encoding: base64`);
+      lines.push(CRLF);
+      lines.push(att.base64Content);
+      lines.push(CRLF);
+    }
+    lines.push(`--${boundary}--`);
+  }
+
+  return lines.join(CRLF);
+}
+
+export function encodeRfc2822(rfc2822Message: string): string {
+  return Buffer.from(rfc2822Message, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
