@@ -97,6 +97,20 @@ function extractHtmlBody(payload: GmailPayload | undefined): string | undefined 
   return undefined;
 }
 
+function decodeHtmlEntities(text: string): string {
+  const entities: Record<string, string> = {
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&#39;": "'",
+    "&apos;": "'",
+    "&#x27;": "'",
+    "&nbsp;": " ",
+  };
+  return text.replace(/&[#\w]+;/g, (entity) => entities[entity] || entity);
+}
+
 function mapLabelIds(labelIds: string[]): {
   read: boolean;
   starred: boolean;
@@ -130,8 +144,8 @@ export function mapGmailMessageToEmail(message: GmailMessage): Email {
     id: message.id ?? "",
     from,
     to,
-    subject: subject || "(No subject)",
-    preview: message.snippet || "",
+    subject: decodeHtmlEntities(subject || "(No subject)"),
+    preview: decodeHtmlEntities(message.snippet || ""),
     body,
     bodyHtml,
     timestamp: new Date(

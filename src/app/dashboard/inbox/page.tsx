@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Pencil, RefreshCw, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterBar } from "@/components/inbox/filter-bar";
 import { EmailList } from "@/components/inbox/email-list";
-import { ThreadView } from "@/components/inbox/thread-view";
 import { ComposeModal } from "@/components/inbox/compose-modal";
 import { cn } from "@/lib/utils";
 import type { Email, FilterOption } from "@/types/email";
@@ -22,8 +22,8 @@ function getGmailFilterQuery(filter: FilterId): string | undefined {
 }
 
 export default function InboxPage() {
+  const router = useRouter();
   const [emails, setEmails] = useState<Email[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<{ name: string; email: string; subject: string } | undefined>();
@@ -33,8 +33,6 @@ export default function InboxPage() {
   const [pageToken, setPageToken] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const selectedEmail = emails.find((e) => e.id === selectedId) || null;
 
   const fetchEmails = useCallback(async (
     filter: FilterId,
@@ -69,7 +67,12 @@ export default function InboxPage() {
 
       const data = await response.json();
 
-      setEmails((prev) => (reset ? data.emails : [...prev, ...data.emails]));
+      setEmails((prev) => {
+        if (reset) return data.emails;
+        const existingIds = new Set(prev.map((e) => e.id));
+        const newEmails = data.emails.filter((e: Email) => !existingIds.has(e.id));
+        return [...prev, ...newEmails];
+      });
       setPageToken(data.nextPageToken);
       setHasMore(!!data.nextPageToken);
     } catch (err) {
@@ -102,7 +105,6 @@ export default function InboxPage() {
     fetchEmails(activeFilter, null, true);
   }, [activeFilter, fetchEmails]);
 
-  // Fetch emails on mount and when filter changes
   useEffect(() => {
     const controller = new AbortController();
 
@@ -148,92 +150,6 @@ export default function InboxPage() {
     setEmails((prev) => prev.map((e) => ({ ...e, read: true })));
   }, []);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      const currentIndex = emails.findIndex((e) => e.id === selectedId);
-
-      switch (e.key) {
-        case "j":
-        case "ArrowDown":
-          e.preventDefault();
-          if (currentIndex < emails.length - 1) {
-            setSelectedId(emails[currentIndex + 1].id);
-          }
-          break;
-        case "k":
-        case "ArrowUp":
-          e.preventDefault();
-          if (currentIndex > 0) {
-            setSelectedId(emails[currentIndex - 1].id);
-          }
-          break;
-        case "Enter":
-          if (selectedId) {
-            setEmails((prev) =>
-              prev.map((e) =>
-                e.id === selectedId ? { ...e, read: true } : e
-              )
-            );
-          }
-          break;
-        case "s":
-          if (selectedId) {
-            handleToggleStar(selectedId);
-          }
-          break;
-        case "c":
-          e.preventDefault();
-          setComposeOpen(true);
-          break;
-        case "r":
-          if (selectedEmail) {
-            setReplyTo({
-              name: selectedEmail.from.name,
-              email: selectedEmail.from.email,
-              subject: selectedEmail.subject,
-            });
-            setComposeOpen(true);
-          }
-          break;
-        case "Escape":
-          setComposeOpen(false);
-          break;
-        case "1":
-          setActiveFilter("P1");
-          break;
-        case "2":
-          setActiveFilter("P2");
-          break;
-        case "3":
-          setActiveFilter("P3");
-          break;
-        case "0":
-          setActiveFilter("all");
-          break;
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, emails, selectedEmail, handleToggleStar]);
-
-  // Select first email on mount
-  const initializedRef = useRef(false);
-  useEffect(() => {
-    if (!initializedRef.current && emails.length > 0 && !loading) {
-      initializedRef.current = true;
-      setSelectedId(emails[0].id);
-    }
-  }, [emails, loading]);
-
   return (
     <div className="flex flex-col h-full">
       {/* Action bar */}
@@ -268,35 +184,18 @@ export default function InboxPage() {
         </div>
       )}
 
-      {/* Main content: split view */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Email list - 40% */}
-        <div className="w-2/5 border-r border-border overflow-hidden">
-          <EmailList
-            emails={emails}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onToggleStar={handleToggleStar}
-            loading={loading}
-            loadingMore={loadingMore}
-            hasMore={hasMore}
-            onLoadMore={handleLoadMore}
-          />
-        </div>
-
-        {/* Thread view - 60% */}
-        <div className="w-3/5 overflow-hidden">
-          {selectedEmail ? (
-            <ThreadView
-              email={selectedEmail}
-              onToggleStar={handleToggleStar}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <p className="text-sm">Select an email to view</p>
-            </div>
-          )}
-        </div>
+      {/* Email list — full width */}
+      <div className="flex-1 overflow-hidden overflow-x-hidden">
+        <EmailList
+          emails={emails}
+          selectedId={null}
+          onSelect={(id) => router.push(`/dashboard/inbox/${id}`)}
+          onToggleStar={handleToggleStar}
+          loading={loading}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          onLoadMore={handleLoadMore}
+        />
       </div>
 
       {/* Compose modal */}

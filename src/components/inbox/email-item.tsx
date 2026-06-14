@@ -54,7 +54,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
     <button
       onClick={() => onSelect(email.id)}
       className={cn(
-        "flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border",
+        "flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border overflow-hidden",
         isSelected
           ? "bg-primary/5 border-l-2 border-l-primary"
           : "hover:bg-muted/50 border-l-2 border-l-transparent",
@@ -102,7 +102,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
         >
           {email.subject}
         </p>
-        <p className="text-xs text-muted-foreground truncate mt-0.5">{email.preview}</p>
+        <p className="text-xs text-muted-foreground truncate mt-0.5" title={email.preview}>{email.preview}</p>
       </div>
 
       {/* Right side: badges + star */}

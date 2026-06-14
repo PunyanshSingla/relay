@@ -87,7 +87,7 @@ export function EmailList({
   }
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full overflow-hidden">
       <div className="divide-y divide-border">
         {emails.map((email) => (
           <EmailItem
