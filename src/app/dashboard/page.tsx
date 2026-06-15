@@ -1,6 +1,7 @@
 "use client";
 
-import { Inbox, Calendar, Sparkles, ArrowRight, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Inbox, Calendar, Sparkles, ArrowRight, Users, Loader2, Clock, MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -48,13 +49,32 @@ const recentEmails = [
   { from: "Notion", subject: "Weekly digest", time: "3h ago", unread: false },
 ];
 
-const upcomingEvents = [
-  { title: "Team Standup", time: "9:00 AM", duration: "15m", color: "bg-blue-500" },
-  { title: "Design Review", time: "11:00 AM", duration: "1h", color: "bg-emerald-500" },
-  { title: "1:1 with Manager", time: "2:00 PM", duration: "30m", color: "bg-purple-500" },
-];
-
 export default function DashboardPage() {
+  const [upcomingEvents, setUpcomingEvents] = useState<Array<{
+    id?: string;
+    summary?: string;
+    start?: { dateTime?: string; date?: string };
+    location?: string;
+    status?: string;
+  }>>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/calendar/events?limit=3")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.events) setUpcomingEvents(data.events);
+      })
+      .catch(() => {})
+      .finally(() => setEventsLoading(false));
+  }, []);
+
+  const statusColors: Record<string, string> = {
+    confirmed: "bg-emerald-500",
+    tentative: "bg-amber-500",
+    cancelled: "bg-red-500",
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -142,22 +162,44 @@ export default function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {upcomingEvents.map((event, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50"
-                >
-                  <div className={`w-1 h-8 rounded-full ${event.color}`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{event.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {event.time} · {event.duration}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {eventsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : upcomingEvents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <Calendar className="size-10 text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">No upcoming events</p>
+                <Link href="/dashboard/calendar" className="text-xs text-primary mt-1 hover:underline">
+                  Connect your calendar
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {upcomingEvents.slice(0, 3).map((event, i) => {
+                  const color = event.status ? (statusColors[event.status] ?? "bg-blue-500") : "bg-blue-500";
+                  const dateStr = event.start?.date ?? event.start?.dateTime;
+                  const time = dateStr
+                    ? new Date(dateStr).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                    : "";
+                  return (
+                    <div
+                      key={event.id ?? i}
+                      className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50"
+                    >
+                      <div className={`w-1 h-8 rounded-full ${color}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{event.summary || "(no title)"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {time}
+                          {event.location ? ` · ${event.location}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

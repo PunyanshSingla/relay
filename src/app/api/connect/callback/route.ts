@@ -1,7 +1,7 @@
 import { processOAuthCallback } from "corsair/oauth";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { corsair } from "@/lib/corsair";
+import { corsair, ensureCorsairSetup } from "@/lib/corsair";
 import { inngest } from "@/lib/inngest";
 
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/connect/callback`;
@@ -49,7 +49,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const storedState = request.cookies.get("oauth_state")?.value;
+  const gmailState = request.cookies.get("oauth_state")?.value;
+  const calendarState = request.cookies.get("oauth_state_calendar")?.value;
+
+  const isCalendarFlow = !!calendarState;
+  const storedState = isCalendarFlow ? calendarState : gmailState;
+
   if (!storedState || storedState !== state) {
     return new NextResponse(
       '<p>Invalid state. Possible CSRF attempt.</p>',
@@ -58,6 +63,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await ensureCorsairSetup();
     await processOAuthCallback(corsair as never, {
       code,
       state,
@@ -65,6 +71,29 @@ export async function GET(request: NextRequest) {
     });
 
     const tenantId = parseStateTenantId(state);
+
+    if (isCalendarFlow) {
+      const response = NextResponse.redirect(
+        new URL("/dashboard", request.url)
+      );
+      response.cookies.set("calendar_connected", "true", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+      response.cookies.delete("oauth_state_calendar");
+
+      if (tenantId) {
+        await inngest.send({
+          name: "calendar/trigger-sync",
+          data: { userId: tenantId },
+        });
+      }
+
+      return response;
+    }
 
     const response = NextResponse.redirect(
       new URL("/dashboard", request.url)
@@ -88,6 +117,14 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (err) {
     const message = err instanceof Error ? err.message : "OAuth failed";
+    console.error("[callback] OAuth callback error:", err);
+    console.error("[callback] OAuth callback error:");
+    console.dir(err, { depth: null });
+
+    if (err instanceof Error) {
+      console.error("Message:", err.message);
+      console.error("Stack:", err.stack);
+    }
     return new NextResponse(
       `<html><body><h2>OAuth error</h2><p>${escapeHtml(message)}</p><p><a href="/onboarding">Try again</a></p></body></html>`,
       { status: 500, headers: { "Set-Cookie": clearCookieHeader, "Content-Type": "text/html" } }
