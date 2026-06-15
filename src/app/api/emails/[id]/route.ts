@@ -18,10 +18,17 @@ export async function GET(
   const { id } = await params;
 
   try {
+    // Resolve UUID → gmailId via DB lookup
+    const dbEmailLookup = await prisma.email.findUnique({
+      where: { id },
+      select: { gmailId: true },
+    });
+    const gmailId = dbEmailLookup?.gmailId ?? id;
+
     const tenant = corsair.withTenant(session.user.id);
 
     const message = await tenant.gmail.api.messages.get({
-      id,
+      id: gmailId,
       format: "full",
     });
 
@@ -33,10 +40,10 @@ export async function GET(
       });
 
       const emails = mapGmailThreadToEmails(thread);
-      const email = emails.find((e) => e.id === id) ?? emails[0] ?? mapGmailMessageToEmail(message);
+      const email = emails.find((e) => e.id === gmailId) ?? emails[0] ?? mapGmailMessageToEmail(message);
 
       const otherReplies = emails
-        .filter((e) => e.id !== id)
+        .filter((e) => e.id !== gmailId)
         .map((e) => ({
           id: e.id,
           from: e.from,
@@ -48,7 +55,7 @@ export async function GET(
       email.replies = otherReplies;
 
       const dbEmail = await prisma.email.findUnique({
-        where: { id },
+        where: { gmailId },
         select: { priority: true, category: true, aiClassified: true, aiReason: true, aiAction: true },
       });
 
@@ -63,7 +70,7 @@ export async function GET(
     const email = mapGmailMessageToEmail(message);
 
     const dbEmail = await prisma.email.findUnique({
-      where: { id },
+      where: { gmailId },
       select: { priority: true, category: true, aiClassified: true, aiReason: true, aiAction: true },
     });
 

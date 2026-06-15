@@ -168,10 +168,8 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
             onLoad={handleIframeLoad}
           />
         ) : (
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-              {email.body}
-            </div>
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <p className="text-sm">No preview available</p>
           </div>
         )}
 
