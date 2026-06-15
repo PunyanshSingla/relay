@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Loader2, ArrowRight, Shield } from "lucide-react";
+import { Mail, Loader2, ArrowRight, Shield, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Logo } from "@/components/common/logo";
@@ -12,6 +12,11 @@ export default function OnboardingPage() {
   const handleConnectGmail = async () => {
     setLoading(true);
     window.location.href = "/api/connect/gmail";
+  };
+
+  const handleConnectCalendar = async () => {
+    setLoading(true);
+    window.location.href = "/api/connect/calendar";
   };
 
   return (
@@ -85,6 +90,48 @@ export default function OnboardingPage() {
               )}
               Connect Gmail
               <ArrowRight className="size-4" />
+            </Button>
+
+          </CardContent>
+        </Card>
+
+        <Card className="border-border mt-4">
+          <CardContent className="p-6">
+            <div className="mb-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Calendar className="size-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">View & manage events</p>
+                  <p className="text-xs text-muted-foreground">
+                    Access your calendar to view, create, and manage events
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Shield className="size-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Encrypted & secure</p>
+                  <p className="text-xs text-muted-foreground">
+                    Your credentials are encrypted and never shared
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleConnectCalendar}
+              disabled={loading}
+              variant="outline"
+              className="h-11 w-full"
+            >
+              <Calendar className="mr-2 size-4" />
+              Connect Calendar
+              <ArrowRight className="ml-auto size-4" />
             </Button>
 
           </CardContent>

@@ -142,7 +142,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandSeparator />
 
         <CommandGroup heading="Calendar Actions">
-          <CommandItem onSelect={() => runCommand(() => {})}>
+          <CommandItem onSelect={() => runCommand(() => router.push("/dashboard/calendar?new=true"))}>
             <Plus className="mr-2 size-4" />
             <span>Create Event</span>
           </CommandItem>
