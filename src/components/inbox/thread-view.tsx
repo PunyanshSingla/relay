@@ -16,13 +16,24 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import DOMPurify from "dompurify";
 import { AIReplyPanel } from "./ai-reply-panel";
-import type { Email, Priority } from "@/types/email";
+import { Badge } from "@/components/ui/badge";
+import type { Email, Priority, Category } from "@/types/email";
 import { formatDistanceToNow } from "@/lib/format-date";
 
 const PRIORITY_COLORS: Record<Priority, string> = {
   P1: "bg-red-500",
   P2: "bg-amber-500",
   P3: "bg-gray-400",
+};
+
+const CATEGORY_CONFIG: Record<Category, { badge: string; label: string }> = {
+  action_needed: { badge: "bg-red-500/10 text-red-500 border-red-500/20", label: "Action Needed" },
+  meeting: { badge: "bg-purple-500/10 text-purple-500 border-purple-500/20", label: "Meeting" },
+  follow_up: { badge: "bg-amber-500/10 text-amber-500 border-amber-500/20", label: "Follow-up" },
+  fyi: { badge: "bg-gray-500/10 text-gray-500 border-gray-500/20", label: "FYI" },
+  newsletter: { badge: "bg-blue-500/10 text-blue-500 border-blue-500/20", label: "Newsletter" },
+  promotion: { badge: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20", label: "Promotion" },
+  social: { badge: "bg-pink-500/10 text-pink-500 border-pink-500/20", label: "Social" },
 };
 
 function getInitials(name: string): string {
@@ -60,6 +71,7 @@ interface ThreadViewProps {
 export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward, onArchive, onDelete }: ThreadViewProps) {
   const avatarColor = getAvatarColor(email.from.name);
   const priorityColor = PRIORITY_COLORS[email.priority];
+  const categoryConfig = CATEGORY_CONFIG[email.category];
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const handleIframeLoad = useCallback(() => {
@@ -89,6 +101,14 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">{email.subject}</h2>
               <div className={cn("size-2 rounded-full", priorityColor)} />
+              {categoryConfig && (
+                <Badge
+                  variant="outline"
+                  className={cn("text-[10px] px-1.5 py-0 h-5 font-medium", categoryConfig.badge)}
+                >
+                  {categoryConfig.label}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{email.from.name}</span>

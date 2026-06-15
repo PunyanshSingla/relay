@@ -3,13 +3,23 @@
 import { Star, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { Email, Priority } from "@/types/email";
+import type { Email, Priority, Category } from "@/types/email";
 import { formatDistanceToNow } from "@/lib/format-date";
 
 const PRIORITY_CONFIG: Record<Priority, { dot: string; badge: string; label: string }> = {
   P1: { dot: "bg-red-500", badge: "bg-red-500/10 text-red-500 border-red-500/20", label: "P1" },
   P2: { dot: "bg-amber-500", badge: "bg-amber-500/10 text-amber-500 border-amber-500/20", label: "P2" },
   P3: { dot: "bg-gray-400", badge: "bg-gray-500/10 text-gray-500 border-gray-500/20", label: "P3" },
+};
+
+const CATEGORY_CONFIG: Record<Category, { badge: string; label: string }> = {
+  action_needed: { badge: "bg-red-500/10 text-red-500 border-red-500/20", label: "Action" },
+  meeting: { badge: "bg-purple-500/10 text-purple-500 border-purple-500/20", label: "Meeting" },
+  follow_up: { badge: "bg-amber-500/10 text-amber-500 border-amber-500/20", label: "Follow-up" },
+  fyi: { badge: "bg-gray-500/10 text-gray-500 border-gray-500/20", label: "FYI" },
+  newsletter: { badge: "bg-blue-500/10 text-blue-500 border-blue-500/20", label: "News" },
+  promotion: { badge: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20", label: "Promo" },
+  social: { badge: "bg-pink-500/10 text-pink-500 border-pink-500/20", label: "Social" },
 };
 
 
@@ -47,6 +57,7 @@ interface EmailItemProps {
 
 export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailItemProps) {
   const priorityConfig = email.priority ? PRIORITY_CONFIG[email.priority] : null;
+  const categoryConfig = email.category ? CATEGORY_CONFIG[email.category] : null;
   const avatarColor = getAvatarColor(email.from.name);
   const timeAgo = formatDistanceToNow(email.timestamp);
 
@@ -54,7 +65,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
     <button
       onClick={() => onSelect(email.id)}
       className={cn(
-        "flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border overflow-hidden",
+        "flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border",
         isSelected
           ? "bg-primary/5 border-l-2 border-l-primary"
           : "hover:bg-muted/50 border-l-2 border-l-transparent",
@@ -102,7 +113,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
         >
           {email.subject}
         </p>
-        <p className="text-xs text-muted-foreground truncate mt-0.5" title={email.preview}>{email.preview}</p>
+        <p className="text-xs text-muted-foreground mt-0.5" title={email.preview}>{email.preview.length > 120 ? email.preview.slice(0, 120) + "..." : email.preview}</p>
       </div>
 
       {/* Right side: badges + star */}
@@ -124,6 +135,14 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
             className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", priorityConfig.badge)}
           >
             {priorityConfig.label}
+          </Badge>
+        )}
+        {categoryConfig && (
+          <Badge
+            variant="outline"
+            className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", categoryConfig.badge)}
+          >
+            {categoryConfig.label}
           </Badge>
         )}
         {email.hasAttachment && (

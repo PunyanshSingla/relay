@@ -1,6 +1,8 @@
 allowBuilds:
+  '@openrouter/sdk': true
   '@prisma/engines': true
   prisma: true
+  protobufjs: true
   sharp: true
   unrs-resolver: true
 minimumReleaseAgeExclude:

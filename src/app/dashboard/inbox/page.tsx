@@ -11,15 +11,6 @@ import type { Email, FilterOption } from "@/types/email";
 
 type FilterId = FilterOption["id"];
 
-function getGmailFilterQuery(filter: FilterId): string | undefined {
-  switch (filter) {
-    case "unread":
-      return "is:unread";
-    default:
-      return undefined;
-  }
-}
-
 export default function InboxPage() {
   const router = useRouter();
   const [emails, setEmails] = useState<Email[]>([]);
@@ -29,6 +20,7 @@ export default function InboxPage() {
   const [pageToken, setPageToken] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   const fetchEmails = useCallback(async (
     filter: FilterId,
@@ -48,11 +40,10 @@ export default function InboxPage() {
     try {
       const params = new URLSearchParams();
       if (!reset && current_pageToken) {
-        params.set("pageToken", current_pageToken);
+        params.set("cursor", current_pageToken);
       }
-      const q = getGmailFilterQuery(filter);
-      if (q) {
-        params.set("q", q);
+      if (filter !== "all") {
+        params.set("filter", filter);
       }
 
       const response = await fetch(`/api/emails?${params.toString()}`);
@@ -69,8 +60,9 @@ export default function InboxPage() {
         const newEmails = data.emails.filter((e: Email) => !existingIds.has(e.id));
         return [...prev, ...newEmails];
       });
-      setPageToken(data.nextPageToken);
-      setHasMore(!!data.nextPageToken);
+      setPageToken(data.nextCursor);
+      setHasMore(!!data.nextCursor);
+      if (data.counts) setCounts(data.counts);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch emails");
     } finally {
@@ -86,11 +78,11 @@ export default function InboxPage() {
   }, [activeFilter, pageToken, hasMore, loadingMore, loading, fetchEmails]);
 
   const filters: FilterOption[] = [
-    { id: "all", label: "All", count: emails.length },
-    { id: "unread", label: "Unread", count: emails.filter((e) => !e.read).length },
-    { id: "P1", label: "P1 Critical", count: emails.filter((e) => e.priority === "P1").length },
-    { id: "P2", label: "P2 Important", count: emails.filter((e) => e.priority === "P2").length },
-    { id: "P3", label: "P3 Low", count: emails.filter((e) => e.priority === "P3").length },
+    { id: "all", label: "All", count: counts.total ?? emails.length },
+    { id: "unread", label: "Unread", count: counts.unread ?? 0 },
+    { id: "P1", label: "P1 Critical", count: counts.P1 ?? 0 },
+    { id: "P2", label: "P2 Important", count: counts.P2 ?? 0 },
+    { id: "P3", label: "P3 Low", count: counts.P3 ?? 0 },
   ];
 
   const handleFilterChange = useCallback((filter: FilterId) => {
@@ -107,9 +99,8 @@ export default function InboxPage() {
     async function load() {
       try {
         const params = new URLSearchParams();
-        const q = getGmailFilterQuery(activeFilter);
-        if (q) {
-          params.set("q", q);
+        if (activeFilter !== "all") {
+          params.set("filter", activeFilter);
         }
 
         const response = await fetch(`/api/emails?${params.toString()}`, {
@@ -122,8 +113,9 @@ export default function InboxPage() {
 
         const data = await response.json();
         setEmails(data.emails);
-        setPageToken(data.nextPageToken);
-        setHasMore(!!data.nextPageToken);
+        setPageToken(data.nextCursor);
+        setHasMore(!!data.nextCursor);
+        if (data.counts) setCounts(data.counts);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Failed to fetch emails");

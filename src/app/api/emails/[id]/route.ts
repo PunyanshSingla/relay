@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { mapGmailMessageToEmail, mapGmailThreadToEmails } from "@/lib/gmail-utils";
+import type { Priority, Category } from "@/types/email";
 
 export async function GET(
   request: Request,
@@ -45,10 +47,31 @@ export async function GET(
 
       email.replies = otherReplies;
 
+      const dbEmail = await prisma.email.findUnique({
+        where: { id },
+        select: { priority: true, category: true, aiClassified: true, aiReason: true, aiAction: true },
+      });
+
+      if (dbEmail) {
+        email.priority = (dbEmail.priority as Priority) || email.priority;
+        email.category = (dbEmail.category as Category) || email.category;
+      }
+
       return NextResponse.json({ email });
     }
 
     const email = mapGmailMessageToEmail(message);
+
+    const dbEmail = await prisma.email.findUnique({
+      where: { id },
+      select: { priority: true, category: true, aiClassified: true, aiReason: true, aiAction: true },
+    });
+
+    if (dbEmail) {
+      email.priority = (dbEmail.priority as Priority) || email.priority;
+      email.category = (dbEmail.category as Category) || email.category;
+    }
+
     return NextResponse.json({ email });
   } catch (error) {
     console.error("Failed to fetch email:", error);

@@ -79,7 +79,7 @@ export function EmailList({
   if (loading) {
     return (
       <div className="h-full overflow-y-auto">
-        {Array.from({ length: 7 }).map((_, i) => (
+        {Array.from({ length: 8 }).map((_, i) => (
           <SkeletonRow key={i} />
         ))}
       </div>

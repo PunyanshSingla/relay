@@ -2,6 +2,7 @@ import { processOAuthCallback } from "corsair/oauth";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { corsair } from "@/lib/corsair";
+import { inngest } from "@/lib/inngest";
 
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/connect/callback`;
 
@@ -12,6 +13,18 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;");
+}
+
+function parseStateTenantId(state: string): string | null {
+  try {
+    const parts = state.split(".");
+    if (parts.length < 2) return null;
+    const json = Buffer.from(parts[0], "base64").toString("utf-8");
+    const parsed = JSON.parse(json);
+    return parsed.tenantId ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -51,6 +64,8 @@ export async function GET(request: NextRequest) {
       redirectUri: REDIRECT_URI,
     });
 
+    const tenantId = parseStateTenantId(state);
+
     const response = NextResponse.redirect(
       new URL("/dashboard", request.url)
     );
@@ -59,9 +74,17 @@ export async function GET(request: NextRequest) {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 24 * 365, // 1 year
+      maxAge: 60 * 60 * 24 * 365,
     });
     response.cookies.delete("oauth_state");
+
+    if (tenantId) {
+      await inngest.send({
+        name: "email/trigger-sync",
+        data: { userId: tenantId },
+      });
+    }
+
     return response;
   } catch (err) {
     const message = err instanceof Error ? err.message : "OAuth failed";
