@@ -1,5 +1,6 @@
 import { corsair, ensureCorsairSetup, ensureTenant } from "@/lib/corsair";
 import { prisma } from "@/lib/prisma";
+import { upsertSyncState } from "@/lib/sync-status";
 import crypto from "crypto";
 
 export interface RawEmail {
@@ -65,6 +66,14 @@ export async function syncIncrementalEmails(
         console.error(`[sync] Failed to fetch message ${msg.id}:`, err);
       }
     }
+
+    const totalInDb = await prisma.email.count({ where: { userId } });
+    await upsertSyncState(userId, {
+      syncedEmails: syncCount,
+      totalEmails: totalInDb,
+    }).catch((err) => {
+      console.error("[sync] Failed to update sync progress:", err);
+    });
 
     if (totalFetched >= maxMessages) break;
     pageToken = listResult.nextPageToken ?? undefined;

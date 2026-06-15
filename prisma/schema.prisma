@@ -189,3 +189,22 @@ model Contact {
   @@unique([userId, email])
   @@map("contacts")
 }
+
+model SyncState {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  phase            String   @default("idle")
+  isInitialSync    Boolean  @default(false)
+  syncStartedAt    DateTime?
+  syncCompletedAt  DateTime?
+  totalEmails      Int      @default(0)
+  syncedEmails     Int      @default(0)
+  classifiedEmails Int      @default(0)
+  totalToClassify  Int      @default(0)
+  lastSyncAt       DateTime?
+  lastError        String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("sync_states")
+}

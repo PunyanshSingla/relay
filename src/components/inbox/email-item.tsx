@@ -129,21 +129,32 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
             className={cn("size-4", email.starred && "fill-amber-500 text-amber-500")}
           />
         </button>
-        {priorityConfig && (
+        {!email.isClassified ? (
           <Badge
             variant="outline"
-            className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", priorityConfig.badge)}
+            className="text-[10px] px-1.5 py-0 h-4 font-medium bg-muted text-muted-foreground border-muted animate-pulse"
           >
-            {priorityConfig.label}
+            Processing...
           </Badge>
-        )}
-        {categoryConfig && (
-          <Badge
-            variant="outline"
-            className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", categoryConfig.badge)}
-          >
-            {categoryConfig.label}
-          </Badge>
+        ) : (
+          <>
+            {priorityConfig && (
+              <Badge
+                variant="outline"
+                className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", priorityConfig.badge)}
+              >
+                {priorityConfig.label}
+              </Badge>
+            )}
+            {categoryConfig && (
+              <Badge
+                variant="outline"
+                className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", categoryConfig.badge)}
+              >
+                {categoryConfig.label}
+              </Badge>
+            )}
+          </>
         )}
         {email.hasAttachment && (
           <Paperclip className="size-3 text-muted-foreground" />

@@ -1,18 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, RefreshCw, CheckCheck } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FilterBar } from "@/components/inbox/filter-bar";
 import { EmailList } from "@/components/inbox/email-list";
+import { SyncBanner } from "@/components/inbox/sync-banner";
+import { SyncSummaryCard } from "@/components/inbox/sync-summary-card";
 import { cn } from "@/lib/utils";
+import { useSyncStatus } from "@/contexts/sync-status-context";
 import type { Email, FilterOption } from "@/types/email";
 
 type FilterId = FilterOption["id"];
 
 export default function InboxPage() {
   const router = useRouter();
+  const { syncState } = useSyncStatus();
   const [emails, setEmails] = useState<Email[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
   const [loading, setLoading] = useState(true);
@@ -128,6 +133,90 @@ export default function InboxPage() {
     return () => controller.abort();
   }, [activeFilter]);
 
+  useEffect(() => {
+    if (syncState?.phase !== "classifying") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/emails/counts");
+        if (res.ok) {
+          const data = await res.json();
+          setCounts(data);
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [syncState?.phase]);
+
+  useEffect(() => {
+    if (syncState?.phase !== "syncing" && syncState?.phase !== "classifying") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const params = new URLSearchParams();
+        if (activeFilter !== "all") {
+          params.set("filter", activeFilter);
+        }
+        const res = await fetch(`/api/emails?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmails((prev) => {
+            const existingIds = new Set(prev.map((e) => e.id));
+            const newEmails = data.emails.filter((e: Email) => !existingIds.has(e.id));
+            if (newEmails.length === 0) return prev;
+            return [...prev, ...newEmails];
+          });
+          setPageToken(data.nextCursor);
+          setHasMore(!!data.nextCursor);
+          if (data.counts) setCounts(data.counts);
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [syncState?.phase, activeFilter]);
+
+  const prevClassified = useRef(0);
+  const wasInitialSync = useRef(false);
+  const hasShownClassifyingToast = useRef(false);
+
+  useEffect(() => {
+    if (syncState?.isInitialSync && syncState.phase === "classifying") {
+      wasInitialSync.current = true;
+    }
+  }, [syncState?.isInitialSync, syncState?.phase]);
+
+  useEffect(() => {
+    if (!syncState) return;
+
+    if (syncState.phase === "classifying" && !hasShownClassifyingToast.current && syncState.classifiedEmails > 0) {
+      hasShownClassifyingToast.current = true;
+      toast("AI is categorizing your emails...", {
+        duration: 3000,
+      });
+    }
+
+    if (syncState.phase === "complete") {
+      hasShownClassifyingToast.current = false;
+    }
+
+    prevClassified.current = syncState.classifiedEmails;
+  }, [syncState?.classifiedEmails, syncState?.phase]);
+
+  useEffect(() => {
+    if (syncState?.phase === "complete" && wasInitialSync.current) {
+      wasInitialSync.current = false;
+      toast.success(`Sync complete! ${syncState.totalEmails} emails processed.`, {
+        duration: 6000,
+      });
+    }
+  }, [syncState?.phase]);
+
   const handleToggleStar = useCallback(async (id: string) => {
     const email = emails.find((e) => e.id === id);
     if (!email) return;
@@ -189,6 +278,17 @@ export default function InboxPage() {
         </Button>
       </div>
 
+      {/* Sync progress banner */}
+      <SyncBanner />
+
+      {/* Post-sync summary */}
+      {syncState?.phase === "complete" && syncState.isInitialSync && (
+        <SyncSummaryCard
+          totalEmails={syncState.totalEmails}
+          counts={counts}
+        />
+      )}
+
       {/* Filter bar */}
       <FilterBar
         filters={filters}
@@ -214,6 +314,7 @@ export default function InboxPage() {
           loadingMore={loadingMore}
           hasMore={hasMore}
           onLoadMore={handleLoadMore}
+          syncState={syncState}
         />
       </div>
 

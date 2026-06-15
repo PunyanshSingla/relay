@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Logo } from "@/components/common/logo";
+import { SyncIndicator } from "./sync-indicator";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -214,6 +215,9 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
           </div>
         )}
       </ScrollArea>
+
+      {/* Sync indicator */}
+      <SyncIndicator collapsed={collapsed} />
 
       {/* Keyboard shortcuts hint */}
       {!collapsed && (

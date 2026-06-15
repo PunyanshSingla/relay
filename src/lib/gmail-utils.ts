@@ -197,6 +197,7 @@ export function mapGmailMessageToEmail(message: GmailMessage): Email {
     attachments,
     threadId: message.threadId ?? "",
     replies: [],
+    isClassified: false,
   };
 }
 

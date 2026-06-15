@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { runHeuristics } from "@/lib/ai/heuristics";
 import { classifyBatch, classifyEmail } from "@/lib/ai/classifier";
 import { trackContact, getContactContext } from "@/lib/contact-tracker";
+import { upsertSyncState, incrementClassifiedCount, markSyncComplete } from "@/lib/sync-status";
 
 const BATCH_SIZE = 100;
 
@@ -15,7 +16,13 @@ export const classifyBatchJob = inngest.createFunction(
   async ({ event, step }) => {
     const { userId } = event.data as { userId: string };
 
-    // Step 1: Fetch unclassified emails
+    // Step 0: Set accurate totalToClassify from DB
+    await step.run("update-total-to-classify", async () => {
+      const totalCount = await prisma.email.count({ where: { userId } });
+      await upsertSyncState(userId, { totalToClassify: totalCount });
+    });
+
+    // Step 1: Fetch unclassified emails (newest first)
     const unclassified = await step.run("fetch-unclassified", async () => {
       return prisma.email.findMany({
         where: { userId, aiClassified: false },
@@ -25,6 +32,11 @@ export const classifyBatchJob = inngest.createFunction(
     });
 
     if (unclassified.length === 0) {
+      const totalCount = await prisma.email.count({ where: { userId } });
+      const classifiedCount = await prisma.email.count({ where: { userId, aiClassified: true } });
+      if (classifiedCount >= totalCount) {
+        await markSyncComplete(userId);
+      }
       return { classified: 0 };
     }
 
@@ -80,6 +92,8 @@ export const classifyBatchJob = inngest.createFunction(
           });
         }
       });
+
+      await incrementClassifiedCount(userId, heuristicMatched.length);
     }
 
     // Step 4: Fetch contact context + run LLM classification in one step
@@ -127,16 +141,21 @@ export const classifyBatchJob = inngest.createFunction(
           await trackContact(userId, emailRecord.from, emailRecord.fromName, emailRecord.subject);
         }
       });
+
+      await incrementClassifiedCount(userId, llmResults.length);
     }
 
     // Step 6: Fallback - classify any remaining unclassified emails individually
     const classifiedIndices = new Set(llmResults.map((r) => r.index));
     const stillUnclassified = needsLLM.filter((_, i) => !classifiedIndices.has(i));
 
+    let fallbackSuccessCount = 0;
+
     if (stillUnclassified.length > 0) {
       console.log(`[classify-batch] Batch missed ${stillUnclassified.length} emails, classifying individually`);
 
-      await step.run("fallback-individual-classify", async () => {
+      const fallbackResult = await step.run("fallback-individual-classify", async () => {
+        let successCount = 0;
         for (const email of stillUnclassified) {
           try {
             const ctx = await getContactContext(userId, email.from);
@@ -162,15 +181,20 @@ export const classifyBatchJob = inngest.createFunction(
                 },
               });
               await trackContact(userId, email.from, email.fromName, email.subject);
+              successCount++;
             }
           } catch (error) {
             console.error(`[classify-batch] Individual fallback failed for ${email.emailId}:`, error);
           }
         }
+        return successCount;
       });
+
+      fallbackSuccessCount = fallbackResult;
+      await incrementClassifiedCount(userId, fallbackResult);
     }
 
-    const totalClassified = heuristicMatched.length + llmResults.length + stillUnclassified.length;
+    const totalClassified = heuristicMatched.length + llmResults.length + fallbackSuccessCount;
 
     // Check if more unclassified emails remain and re-trigger
     const remainingCount = await step.run("check-remaining", async () => {
@@ -184,6 +208,8 @@ export const classifyBatchJob = inngest.createFunction(
         name: "email/batch-classify",
         data: { userId },
       });
+    } else {
+      await markSyncComplete(userId);
     }
 
     return { classified: totalClassified, remaining: remainingCount };

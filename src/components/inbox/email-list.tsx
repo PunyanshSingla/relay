@@ -14,6 +14,13 @@ interface EmailListProps {
   loadingMore: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+  syncState?: {
+    phase: "idle" | "syncing" | "classifying" | "complete";
+    syncedEmails: number;
+    totalEmails: number;
+    classifiedEmails: number;
+    totalToClassify: number;
+  } | null;
 }
 
 function SkeletonRow() {
@@ -49,6 +56,7 @@ export function EmailList({
   loadingMore,
   hasMore,
   onLoadMore,
+  syncState,
 }: EmailListProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -86,6 +94,8 @@ export function EmailList({
     );
   }
 
+  const isSyncing = syncState?.phase === "syncing" || syncState?.phase === "classifying";
+
   return (
     <ScrollArea className="h-full overflow-hidden">
       <div className="divide-y divide-border">
@@ -99,6 +109,14 @@ export function EmailList({
           />
         ))}
 
+        {isSyncing && emails.length === 0 && (
+          <div className="h-full overflow-y-auto">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonRow key={`sync-skeleton-${i}`} />
+            ))}
+          </div>
+        )}
+
         {loadingMore &&
           Array.from({ length: 3 }).map((_, i) => (
             <SkeletonRow key={`skeleton-${i}`} />
@@ -108,7 +126,7 @@ export function EmailList({
           <div ref={sentinelRef} className="h-4" />
         )}
 
-        {emails.length === 0 && !loading && (
+        {emails.length === 0 && !loading && !isSyncing && (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <p className="text-sm">No emails match this filter</p>
           </div>

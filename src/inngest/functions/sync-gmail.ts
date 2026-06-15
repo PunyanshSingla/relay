@@ -1,6 +1,7 @@
 import { inngest } from "@/lib/inngest";
 import { syncIncrementalEmails } from "@/lib/sync/gmail";
 import { prisma } from "@/lib/prisma";
+import { upsertSyncState } from "@/lib/sync-status";
 
 export const syncGmailJob = inngest.createFunction(
   {
@@ -24,6 +25,27 @@ export const syncGmailJob = inngest.createFunction(
       if (!tenantId) continue;
 
       try {
+        const canSync = await step.run(`check-active-${tenantId}`, async () => {
+          const state = await prisma.syncState.findUnique({ where: { userId: tenantId } });
+          return !state || (state.phase !== "syncing" && state.phase !== "classifying");
+        });
+
+        if (!canSync) continue;
+
+        const existingCount = await step.run(`count-emails-${tenantId}`, async () => {
+          return prisma.email.count({ where: { userId: tenantId } });
+        });
+
+        await step.run(`init-sync-${tenantId}`, async () => {
+          await upsertSyncState(tenantId, {
+            phase: "syncing",
+            isInitialSync: false,
+            syncStartedAt: new Date(),
+            totalEmails: existingCount,
+            lastError: null,
+          });
+        });
+
         const result = await step.run(`sync-${tenantId}`, async () => {
           const latest = await prisma.email.findFirst({
             where: { userId: tenantId },
@@ -40,10 +62,28 @@ export const syncGmailJob = inngest.createFunction(
 
         totalSynced += result.syncCount;
 
-        await step.sendEvent(`dispatch-classify-${tenantId}`, {
-          name: "email/batch-classify",
-          data: { userId: tenantId },
+        await step.run(`set-classifying-${tenantId}`, async () => {
+          const totalUnclassified = await prisma.email.count({ where: { userId: tenantId, aiClassified: false } });
+          const totalInDb = await prisma.email.count({ where: { userId: tenantId } });
+          await upsertSyncState(tenantId, {
+            phase: "classifying",
+            syncedEmails: result.syncCount,
+            totalEmails: totalInDb,
+            totalToClassify: totalUnclassified,
+          });
         });
+
+        const canDispatch = await step.run(`check-classifying-${tenantId}`, async () => {
+          const state = await prisma.syncState.findUnique({ where: { userId: tenantId } });
+          return state?.phase !== "classifying";
+        });
+
+        if (canDispatch) {
+          await step.sendEvent(`dispatch-classify-${tenantId}`, {
+            name: "email/batch-classify",
+            data: { userId: tenantId },
+          });
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[sync-gmail] Failed for tenant ${tenantId}:`, msg);

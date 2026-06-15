@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
     const query: Record<string, unknown> = {
       where,
-      orderBy: [{ priority: "asc" }, { timestamp: "desc" }],
+      orderBy: [{ aiClassified: "asc" }, { priority: "asc" }, { timestamp: "desc" }],
       take: PAGE_SIZE + 1,
     };
 
@@ -68,6 +68,7 @@ export async function GET(request: Request) {
       attachments: [],
       threadId: e.threadId,
       replies: [],
+      isClassified: e.aiClassified,
     }));
 
     return NextResponse.json({

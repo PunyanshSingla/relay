@@ -48,6 +48,7 @@ export interface Email {
   attachments: EmailAttachment[];
   threadId: string;
   replies: EmailReply[];
+  isClassified: boolean;
 }
 
 export interface FilterOption {
