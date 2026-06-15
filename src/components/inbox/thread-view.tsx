@@ -53,9 +53,11 @@ interface ThreadViewProps {
   onReply?: (email: Email) => void;
   onReplyAll?: (email: Email) => void;
   onForward?: (email: Email) => void;
+  onArchive?: () => void;
+  onDelete?: () => void;
 }
 
-export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward }: ThreadViewProps) {
+export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward, onArchive, onDelete }: ThreadViewProps) {
   const avatarColor = getAvatarColor(email.from.name);
   const priorityColor = PRIORITY_COLORS[email.priority];
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -154,12 +156,26 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
         )}
 
         {/* Attachments */}
-        {email.hasAttachment && (
-          <div className="mt-4 p-3 rounded-lg border border-border bg-muted/50">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Paperclip className="size-4" />
-              <span>1 attachment</span>
-            </div>
+        {email.attachments && email.attachments.length > 0 && (
+          <div className="mt-4 space-y-1">
+            {email.attachments.map((att) => (
+              <a
+                key={att.id}
+                href={`/api/emails/${email.id}/attachments/${att.id}`}
+                download={att.filename}
+                className="flex items-center gap-2 p-2 rounded-lg border border-border bg-muted/50 hover:bg-muted transition-colors text-sm text-foreground no-underline"
+              >
+                <Paperclip className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{att.filename}</span>
+                {att.size > 0 && (
+                  <span className="text-xs text-muted-foreground shrink-0 ml-auto">
+                    {att.size > 1024 * 1024
+                      ? `${(att.size / (1024 * 1024)).toFixed(1)} MB`
+                      : `${(att.size / 1024).toFixed(0)} KB`}
+                  </span>
+                )}
+              </a>
+            ))}
           </div>
         )}
 
@@ -218,7 +234,7 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={onArchive}>
               <Archive className="size-4 mr-1" />
               Archive
             </Button>
@@ -227,7 +243,7 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+            <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
               <Trash2 className="size-4 mr-1" />
               Delete
             </Button>

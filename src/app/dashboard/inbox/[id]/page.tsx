@@ -38,10 +38,61 @@ export default function EmailDetailPage() {
     fetchEmail();
   }, [emailId]);
 
-  const handleToggleStar = (id: string) => {
+  useEffect(() => {
+    if (email && !email.read) {
+      fetch(`/api/emails/${emailId}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "read" }),
+      });
+      setEmail((prev) => (prev ? { ...prev, read: true } : prev));
+    }
+  }, [emailId, email]);
+
+  const handleToggleStar = async (id: string) => {
+    const newStarred = !(email?.starred);
     setEmail((prev) =>
-      prev && prev.id === id ? { ...prev, starred: !prev.starred } : prev
+      prev && prev.id === id ? { ...prev, starred: newStarred } : prev
     );
+    try {
+      await fetch(`/api/emails/${id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: newStarred ? "star" : "unstar" }),
+      });
+    } catch {
+      setEmail((prev) =>
+        prev && prev.id === id ? { ...prev, starred: !newStarred } : prev
+      );
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!email) return;
+    try {
+      await fetch(`/api/emails/${email.id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
+      router.push("/dashboard/inbox");
+    } catch {
+      // stay on page on error
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!email) return;
+    try {
+      await fetch(`/api/emails/${email.id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "trash" }),
+      });
+      router.push("/dashboard/inbox");
+    } catch {
+      // stay on page on error
+    }
   };
 
   const handleReply = (e: Email) => {
@@ -109,6 +160,8 @@ export default function EmailDetailPage() {
           onReply={handleReply}
           onReplyAll={handleReplyAll}
           onForward={handleForward}
+          onArchive={handleArchive}
+          onDelete={handleDelete}
         />
       </div>
     </div>

@@ -136,15 +136,46 @@ export default function InboxPage() {
     return () => controller.abort();
   }, [activeFilter]);
 
-  const handleToggleStar = useCallback((id: string) => {
+  const handleToggleStar = useCallback(async (id: string) => {
+    const email = emails.find((e) => e.id === id);
+    if (!email) return;
+    const newStarred = !email.starred;
     setEmails((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, starred: !e.starred } : e))
+      prev.map((e) => (e.id === id ? { ...e, starred: newStarred } : e))
     );
-  }, []);
+    try {
+      await fetch(`/api/emails/${id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: newStarred ? "star" : "unstar" }),
+      });
+    } catch {
+      setEmails((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, starred: !newStarred } : e))
+      );
+    }
+  }, [emails]);
 
-  const handleMarkAllRead = useCallback(() => {
+  const handleMarkAllRead = useCallback(async () => {
+    const unreadIds = emails.filter((e) => !e.read).map((e) => e.id);
+    if (unreadIds.length === 0) return;
     setEmails((prev) => prev.map((e) => ({ ...e, read: true })));
-  }, []);
+    try {
+      await Promise.all(
+        unreadIds.map((id) =>
+          fetch(`/api/emails/${id}/action`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "read" }),
+          })
+        )
+      );
+    } catch {
+      setEmails((prev) =>
+        prev.map((e) => (unreadIds.includes(e.id) ? { ...e, read: false } : e))
+      );
+    }
+  }, [emails]);
 
   return (
     <div className="flex flex-col h-full">

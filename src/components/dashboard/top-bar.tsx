@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Bell, Command, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -13,6 +15,15 @@ interface TopBarProps {
 }
 
 export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollapse }: TopBarProps) {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      router.push(`/dashboard/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-4 lg:px-6">
       {/* Sidebar toggle */}
@@ -39,16 +50,25 @@ export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollaps
 
       {/* Search bar */}
       <div className="flex-1 max-w-xl">
-        <button
-          onClick={onCommandPaletteOpen}
-          className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
-        >
-          <Search className="size-4 shrink-0" />
-          <span className="flex-1 text-left">Search emails, contacts, or commands...</span>
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
+          <Search className="size-4 shrink-0 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch();
+              if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                onCommandPaletteOpen?.();
+              }
+            }}
+            placeholder="Search emails..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
           <kbd className="hidden pointer-events-none h-5 select-none items-center gap-1 rounded border bg-background px-1.5 font-mono text-[10px] font-medium sm:inline-flex">
             <Command className="size-3" />K
           </kbd>
-        </button>
+        </div>
       </div>
 
       {/* Right side actions */}

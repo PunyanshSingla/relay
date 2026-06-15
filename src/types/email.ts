@@ -14,10 +14,18 @@ export interface EmailAddress {
   email: string;
 }
 
+export interface EmailAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
 export interface EmailReply {
   id: string;
   from: EmailAddress;
   body: string;
+  bodyHtml?: string;
   timestamp: Date;
 }
 
@@ -37,6 +45,7 @@ export interface Email {
   category: Category;
   labels: string[];
   hasAttachment: boolean;
+  attachments: EmailAttachment[];
   threadId: string;
   replies: EmailReply[];
 }

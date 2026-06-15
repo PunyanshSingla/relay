@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
-import { mapGmailMessageToEmail } from "@/lib/gmail-utils";
+import { mapGmailMessageToEmail, mapGmailThreadToEmails } from "@/lib/gmail-utils";
 
 export async function GET(
   request: Request,
@@ -23,8 +23,32 @@ export async function GET(
       format: "full",
     });
 
-    const email = mapGmailMessageToEmail(message);
+    const threadId = message.threadId;
+    if (threadId) {
+      const thread = await tenant.gmail.api.threads.get({
+        id: threadId,
+        format: "full",
+      });
 
+      const emails = mapGmailThreadToEmails(thread);
+      const email = emails.find((e) => e.id === id) ?? emails[0] ?? mapGmailMessageToEmail(message);
+
+      const otherReplies = emails
+        .filter((e) => e.id !== id)
+        .map((e) => ({
+          id: e.id,
+          from: e.from,
+          body: e.body,
+          bodyHtml: e.bodyHtml,
+          timestamp: e.timestamp,
+        }));
+
+      email.replies = otherReplies;
+
+      return NextResponse.json({ email });
+    }
+
+    const email = mapGmailMessageToEmail(message);
     return NextResponse.json({ email });
   } catch (error) {
     console.error("Failed to fetch email:", error);

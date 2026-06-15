@@ -347,14 +347,14 @@ function ComposeContent() {
       </div>
 
       {/* Editor Main Card */}
-      <div className="flex flex-col flex-1 bg-card border border-border rounded-lg shadow-sm overflow-hidden min-h-[500px]">
+      <div className="flex flex-col flex-1 min-h-0 bg-card border border-border rounded-lg shadow-sm overflow-hidden">
         {/* Card Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
           <h2 className="text-base font-semibold">{title}</h2>
         </div>
 
         {/* Sender details and Recipient fields */}
-        <div className="flex flex-col bg-card">
+        <div className="flex flex-col bg-card shrink-0">
           <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
             <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">From</label>
             <span className="text-sm text-foreground">
@@ -429,7 +429,7 @@ function ComposeContent() {
         </div>
 
         {/* Editor Area */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2">
           {(!replyToId || (replyToId && bodyHtml)) && (
             <ComposeEditor
               ref={editorRef}

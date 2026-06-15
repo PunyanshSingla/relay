@@ -1,4 +1,4 @@
-import type { Email, EmailAddress, Priority, Category } from "@/types/email";
+import type { Email, EmailAddress, EmailAttachment, EmailReply, Priority, Category } from "@/types/email";
 
 interface GmailHeader {
   name?: string;
@@ -7,9 +7,10 @@ interface GmailHeader {
 
 interface GmailPayload {
   headers?: GmailHeader[];
-  body?: { data?: string; size?: number };
+  body?: { data?: string; size?: number; attachmentId?: string };
   parts?: GmailPayload[];
   mimeType?: string;
+  filename?: string;
 }
 
 interface GmailMessage {
@@ -97,6 +98,34 @@ function extractHtmlBody(payload: GmailPayload | undefined): string | undefined 
   return undefined;
 }
 
+function extractAttachments(
+  payload: GmailPayload | undefined,
+  prefix = ""
+): EmailAttachment[] {
+  if (!payload) return [];
+  const attachments: EmailAttachment[] = [];
+
+  if (payload.parts) {
+    for (let i = 0; i < payload.parts.length; i++) {
+      const part = payload.parts[i];
+      const partPrefix = prefix ? `${prefix}.${i}` : String(i);
+
+      if (part.filename && part.body?.attachmentId) {
+        attachments.push({
+          id: part.body.attachmentId,
+          filename: part.filename,
+          mimeType: part.mimeType || "application/octet-stream",
+          size: part.body.size || 0,
+        });
+      }
+
+      attachments.push(...extractAttachments(part, partPrefix));
+    }
+  }
+
+  return attachments;
+}
+
 function decodeHtmlEntities(text: string): string {
   const entities: Record<string, string> = {
     "&amp;": "&",
@@ -127,10 +156,12 @@ export function mapGmailMessageToEmail(message: GmailMessage): Email {
   const headers = message.payload?.headers;
   const fromRaw = getHeaderValue(headers, "From");
   const toRaw = getHeaderValue(headers, "To");
+  const ccRaw = getHeaderValue(headers, "Cc");
   const subject = getHeaderValue(headers, "Subject");
   const labels = mapLabelIds(message.labelIds ?? []);
   const body = extractBody(message.payload);
   const bodyHtml = extractHtmlBody(message.payload);
+  const attachments = extractAttachments(message.payload);
 
   const fromAddresses = parseEmailAddresses(fromRaw);
   const from: EmailAddress =
@@ -139,11 +170,13 @@ export function mapGmailMessageToEmail(message: GmailMessage): Email {
       : { name: "Unknown", email: "unknown@email.com" };
 
   const to = parseEmailAddresses(toRaw);
+  const cc = ccRaw ? parseEmailAddresses(ccRaw) : undefined;
 
   return {
     id: message.id ?? "",
     from,
     to,
+    cc: cc && cc.length > 0 ? cc : undefined,
     subject: decodeHtmlEntities(subject || "(No subject)"),
     preview: decodeHtmlEntities(message.snippet || ""),
     body,
@@ -161,6 +194,7 @@ export function mapGmailMessageToEmail(message: GmailMessage): Email {
     category: "fyi" as Category,
     labels: message.labelIds ?? [],
     hasAttachment: labels.hasAttachment,
+    attachments,
     threadId: message.threadId ?? "",
     replies: [],
   };
@@ -248,4 +282,35 @@ export function encodeRfc2822(rfc2822Message: string): string {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");
+}
+
+interface GmailThread {
+  id?: string;
+  messages?: GmailMessage[];
+}
+
+export function mapGmailThreadToEmails(thread: GmailThread): Email[] {
+  const messages = thread.messages ?? [];
+  if (messages.length === 0) return [];
+
+  return messages.map((msg, index) => {
+    const email = mapGmailMessageToEmail(msg);
+
+    if (index < messages.length - 1) {
+      const replies: EmailReply[] = [];
+      for (let i = index + 1; i < messages.length; i++) {
+        const reply = mapGmailMessageToEmail(messages[i]);
+        replies.push({
+          id: reply.id,
+          from: reply.from,
+          body: reply.body,
+          bodyHtml: reply.bodyHtml,
+          timestamp: reply.timestamp,
+        });
+      }
+      email.replies = replies;
+    }
+
+    return email;
+  });
 }

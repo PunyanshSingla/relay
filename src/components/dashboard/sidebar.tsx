@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   Inbox,
   Calendar,
@@ -28,13 +29,31 @@ interface NavItem {
   badge?: number;
 }
 
-const navItems: NavItem[] = [
-  { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: 12 },
-  { label: "Calendar", href: "/dashboard/calendar", icon: Calendar },
-  { label: "Contacts", href: "/dashboard/contacts", icon: Users },
-  { label: "Search", href: "/dashboard/search", icon: Search },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
-];
+function useUnreadCount() {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    fetch("/api/emails?q=is%3Aunread&maxResults=1")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.emails) setCount(data.emails.length);
+      })
+      .catch(() => {});
+  }, []);
+  return count;
+}
+
+function useLabels() {
+  const [labels, setLabels] = useState<{ id: string; name: string; unread: number }[]>([]);
+  useEffect(() => {
+    fetch("/api/labels")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.labels) setLabels(data.labels);
+      })
+      .catch(() => {});
+  }, []);
+  return labels;
+}
 
 const aiItems: NavItem[] = [
   { label: "Command Center", href: "/dashboard/ai", icon: Sparkles },
@@ -96,6 +115,16 @@ function NavLink({
 
 export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
+  const unreadCount = useUnreadCount();
+  const labels = useLabels();
+
+  const navItems: NavItem[] = [
+    { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: unreadCount ?? undefined },
+    { label: "Calendar", href: "/dashboard/calendar", icon: Calendar },
+    { label: "Contacts", href: "/dashboard/contacts", icon: Users },
+    { label: "Search", href: "/dashboard/search", icon: Search },
+    { label: "Settings", href: "/dashboard/settings", icon: Settings },
+  ];
 
   return (
     <aside
@@ -159,6 +188,31 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
             })}
           </nav>
         </div>
+
+        {/* Labels Section */}
+        {labels.length > 0 && !collapsed && (
+          <div className="mt-6">
+            <div className="mb-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Labels
+            </div>
+            <nav className="space-y-1">
+              {labels.map((label) => (
+                <Link
+                  key={label.id}
+                  href={`/dashboard/inbox?q=label:${encodeURIComponent(label.name)}`}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <span className="flex-1 truncate">{label.name}</span>
+                  {label.unread > 0 && (
+                    <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-xs">
+                      {label.unread}
+                    </Badge>
+                  )}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        )}
       </ScrollArea>
 
       {/* Keyboard shortcuts hint */}
