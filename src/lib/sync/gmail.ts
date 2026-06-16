@@ -1,4 +1,4 @@
-import { corsair, ensureCorsairSetup, ensureTenant } from "@/lib/corsair";
+import { corsair, ensureCorsairSetup } from "@/lib/corsair";
 import { prisma } from "@/lib/prisma";
 import { upsertSyncState } from "@/lib/sync-status";
 import crypto from "crypto";
@@ -25,7 +25,6 @@ export async function syncIncrementalEmails(
   maxMessages: number = 500,
 ): Promise<{ syncCount: number }> {
   await ensureCorsairSetup();
-  await ensureTenant(userId);
 
   const tenant = corsair.withTenant(userId);
 

@@ -19,7 +19,21 @@ export async function POST() {
     maxAge: 0,
   });
 
+  response.cookies.set("calendar_connected", "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
+
   response.cookies.set("oauth_state", "", {
+    httpOnly: true,
+    path: "/",
+    maxAge: 0,
+  });
+
+  response.cookies.set("oauth_state_calendar", "", {
     httpOnly: true,
     path: "/",
     maxAge: 0,

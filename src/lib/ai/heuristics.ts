@@ -1,12 +1,5 @@
-import type { Priority, Category } from "@/types/email";
 import { prisma } from "@/lib/prisma";
-
-export interface HeuristicResult {
-  matched: boolean;
-  priority: Priority;
-  category: Category;
-  reason: string;
-}
+import type { HeuristicResult } from "./heuristics.types";
 
 const NO_REPLY_PATTERNS = [
   /^no-?reply@/i,

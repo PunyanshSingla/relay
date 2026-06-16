@@ -1,7 +1,7 @@
 import { generateOAuthUrl } from "corsair/oauth";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { corsair, ensureCorsairSetup, ensureTenant } from "@/lib/corsair";
+import { corsair, ensureCorsairSetup } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
 
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/connect/callback`;
@@ -14,7 +14,6 @@ export async function GET() {
 
   try {
     await ensureCorsairSetup();
-    await ensureTenant(session.user.id);
 
     const { url, state } = await generateOAuthUrl(corsair as never, "googlecalendar", {
       tenantId: session.user.id,

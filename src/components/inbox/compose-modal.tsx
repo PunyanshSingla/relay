@@ -407,6 +407,7 @@ export function ComposeModal({
               ref={editorRef}
               content={bodyHtml}
               onChange={setBodyHtml}
+              emailContext={{ subject, to, thread: replyTo?.bodyHtml }}
             />
           </div>
 

@@ -86,10 +86,14 @@ export async function GET(request: NextRequest) {
       response.cookies.delete("oauth_state_calendar");
 
       if (tenantId) {
-        await inngest.send({
-          name: "calendar/trigger-sync",
-          data: { userId: tenantId },
-        });
+        try {
+          await inngest.send({
+            name: "calendar/trigger-sync",
+            data: { userId: tenantId },
+          });
+        } catch (err) {
+          console.error("[callback] Failed to trigger calendar sync (OAuth was successful):", err);
+        }
       }
 
       return response;
@@ -108,23 +112,20 @@ export async function GET(request: NextRequest) {
     response.cookies.delete("oauth_state");
 
     if (tenantId) {
-      await inngest.send({
-        name: "email/trigger-sync",
-        data: { userId: tenantId },
-      });
+      try {
+        await inngest.send({
+          name: "email/trigger-sync",
+          data: { userId: tenantId },
+        });
+      } catch (err) {
+        console.error("[callback] Failed to trigger email sync (OAuth was successful):", err);
+      }
     }
 
     return response;
   } catch (err) {
     const message = err instanceof Error ? err.message : "OAuth failed";
     console.error("[callback] OAuth callback error:", err);
-    console.error("[callback] OAuth callback error:");
-    console.dir(err, { depth: null });
-
-    if (err instanceof Error) {
-      console.error("Message:", err.message);
-      console.error("Stack:", err.stack);
-    }
     return new NextResponse(
       `<html><body><h2>OAuth error</h2><p>${escapeHtml(message)}</p><p><a href="/onboarding">Try again</a></p></body></html>`,
       { status: 500, headers: { "Set-Cookie": clearCookieHeader, "Content-Type": "text/html" } }

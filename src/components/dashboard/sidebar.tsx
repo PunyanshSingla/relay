@@ -28,6 +28,7 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
+  connected?: boolean;
 }
 
 function useUnreadCount() {
@@ -56,6 +57,17 @@ function useLabels() {
   return labels;
 }
 
+function useConnectionStatus() {
+  const [status, setStatus] = useState<{ gmail: boolean; calendar: boolean } | null>(null);
+  useEffect(() => {
+    fetch("/api/connect/status")
+      .then((r) => r.json())
+      .then(setStatus)
+      .catch(() => {});
+  }, []);
+  return status;
+}
+
 const aiItems: NavItem[] = [
   { label: "Command Center", href: "/dashboard/ai", icon: Sparkles },
   { label: "Daily Brief", href: "/dashboard/brief", icon: Mail },
@@ -80,7 +92,7 @@ function NavLink({
     <Link
       href={item.href}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         isActive
           ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -90,12 +102,18 @@ function NavLink({
       {!collapsed && (
         <>
           <span className="flex-1">{item.label}</span>
+          {item.connected && (
+            <span className="size-1.5 rounded-full bg-green-500 shrink-0" />
+          )}
           {item.badge && (
             <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-xs">
               {item.badge}
             </Badge>
           )}
         </>
+      )}
+      {collapsed && item.connected && (
+        <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-green-500" />
       )}
     </Link>
   );
@@ -118,10 +136,11 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const unreadCount = useUnreadCount();
   const labels = useLabels();
+  const connectionStatus = useConnectionStatus();
 
   const navItems: NavItem[] = [
-    { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: unreadCount ?? undefined },
-    { label: "Calendar", href: "/dashboard/calendar", icon: Calendar },
+    { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: unreadCount ?? undefined, connected: connectionStatus?.gmail },
+    { label: "Calendar", href: "/dashboard/calendar", icon: Calendar, connected: connectionStatus?.calendar },
     { label: "Contacts", href: "/dashboard/contacts", icon: Users },
     { label: "Search", href: "/dashboard/search", icon: Search },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },

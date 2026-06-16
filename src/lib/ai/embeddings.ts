@@ -1,14 +1,16 @@
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { embed } from "ai";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
+const embeddingProvider = createGoogleGenerativeAI({
+  apiKey: process.env.EMBEDDING_API_KEY || "",
+});
+
 export async function generateEmbedding(text: string): Promise<number[] | null> {
   try {
-    const model = google.embedding("text-embedding-004");
-
     const { embedding } = await embed({
-      model,
+      model: embeddingProvider.embedding("text-embedding-004"),
       value: text,
     });
 

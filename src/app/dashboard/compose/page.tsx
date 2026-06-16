@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ComposeEditor, type ComposeEditorRef } from "@/components/inbox/compose-editor";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
-import { cn } from "@/lib/utils";
 import type { Email } from "@/types/email";
 import { authClient } from "@/lib/auth-client";
 
@@ -435,6 +434,11 @@ function ComposeContent() {
               ref={editorRef}
               content={bodyHtml}
               onChange={setBodyHtml}
+              emailContext={{
+                subject: subject || originalEmail?.subject,
+                to: to || originalEmail?.from?.email,
+                thread: originalEmail?.body,
+              }}
             />
           )}
         </div>

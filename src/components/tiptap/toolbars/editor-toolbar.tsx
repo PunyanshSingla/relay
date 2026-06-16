@@ -22,7 +22,7 @@ import { ColorHighlightToolbar } from "./color-and-highlight";
 import { SearchAndReplaceToolbar } from "./search-and-replace-toolbar";
 import { CodeBlockToolbar } from "./code-block";
 
-export const EditorToolbar = ({ editor }: { editor: Editor }) => {
+export const EditorToolbar = ({ editor, children }: { editor: Editor; children?: React.ReactNode }) => {
   return (
     <div className="sticky top-0 z-20 w-full border-b bg-background hidden sm:block">
       <ToolbarProvider editor={editor}>
@@ -69,6 +69,7 @@ export const EditorToolbar = ({ editor }: { editor: Editor }) => {
 
                 {/* Utility Group */}
                 <SearchAndReplaceToolbar />
+                {children}
               </div>
             </div>
             <ScrollBar className="hidden" orientation="horizontal" />

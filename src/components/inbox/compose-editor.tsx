@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useRef, useMemo } from "react";
 import { useEditor, EditorContent, type Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -13,10 +13,13 @@ import Highlight from "@tiptap/extension-highlight";
 import { ImageExtension } from "@/components/tiptap/extensions/image";
 import { ImagePlaceholder } from "@/components/tiptap/extensions/image-placeholder";
 import SearchAndReplace from "@/components/tiptap/extensions/search-and-replace";
+import { AiSuggestion } from "@/components/tiptap/extensions/ai-suggestion";
+import { SpellChecker } from "@/components/tiptap/extensions/spell-checker";
 import { EditorToolbar } from "@/components/tiptap/toolbars/editor-toolbar";
+import { AiToolbar } from "@/components/tiptap/toolbars/ai-toolbar";
 import "@/components/tiptap/tiptap.css";
 
-const extensions = [
+const baseExtensions = [
   StarterKit.configure({
     orderedList: {
       HTMLAttributes: { class: "list-decimal" },
@@ -59,15 +62,38 @@ export interface ComposeEditorRef {
 interface ComposeEditorProps {
   content?: string;
   onChange?: (html: string) => void;
+  emailContext?: {
+    subject?: string;
+    to?: string;
+    thread?: string;
+  };
 }
 
 export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(
-  function ComposeEditor({ content = "", onChange }, ref) {
+  function ComposeEditor({ content = "", onChange, emailContext }, ref) {
     const isRemoteUpdate = useRef(false);
+    const contextRef = useRef(emailContext);
+    contextRef.current = emailContext;
+
+    const extensions = useMemo(
+      () =>
+        [
+          ...baseExtensions,
+          AiSuggestion.configure({
+            debounceMs: 300,
+            getContext: () => contextRef.current ?? {},
+          }),
+          SpellChecker.configure({
+            dictionaryDebounceMs: 100,
+            aiRankDebounceMs: 500,
+          }),
+        ] as Extension[],
+      [],
+    );
 
     const editor = useEditor({
       immediatelyRender: false,
-      extensions: extensions as Extension[],
+      extensions,
       content,
       editorProps: {
         attributes: {
@@ -98,7 +124,9 @@ export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(
 
     return (
       <div className="compose-editor flex flex-col rounded-md border border-border overflow-hidden">
-        <EditorToolbar editor={editor} />
+        <EditorToolbar editor={editor}>
+          <AiToolbar editor={editor} context={emailContext} />
+        </EditorToolbar>
         <EditorContent editor={editor} className="min-h-[200px]" />
       </div>
     );
