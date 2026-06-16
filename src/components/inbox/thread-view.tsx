@@ -73,6 +73,7 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
   const priorityColor = PRIORITY_COLORS[email.priority];
   const categoryConfig = CATEGORY_CONFIG[email.category];
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [replyMode, setReplyMode] = useState<"short" | "professional" | "friendly" | "generate">("professional");
 
   const handleIframeLoad = useCallback(() => {
     const iframe = iframeRef.current;

@@ -7,7 +7,7 @@ import { replyGenerateSchema, type ReplyEmailInput, type ReplyMode, type ReplyGe
 const AI_MODEL = process.env.AI_MODEL || "gemini-2.5-flash-lite";
 
 const replyProvider = createGoogleGenerativeAI({
-  apiKey: process.env.CLASSIFY_API_KEY || "",
+  apiKey: process.env.REPLY_GENERATE_API_KEY || "",
 });
 
 export async function generateReply(

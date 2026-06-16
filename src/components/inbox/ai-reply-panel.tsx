@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Sparkles, Copy, Check, CheckCircle2, MailOpen } from "lucide-react";
+import { Sparkles, Copy, Check, CheckCircle2, MailOpen, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,12 +25,14 @@ const modes: { id: ReplyMode; label: string }[] = [
   { id: "generate", label: "Generate" },
 ];
 
+const MAX_POLL_ATTEMPTS = 30;
+
 export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AIReplyPanelProps) {
   const [status, setStatus] = useState<ReplyStatus>("idle");
   const [reply, setReply] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hasTriggeredRef = useRef(false);
+  const pollCountRef = useRef(0);
 
   const fetchReply = useCallback(async (mode: ReplyMode) => {
     try {
@@ -39,7 +41,7 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emailId, mode }),
       });
-      if (!res.ok) return;
+      if (!res.ok) return false;
 
       const data = await res.json();
 
@@ -64,15 +66,21 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
     setStatus("generating");
     setReply(null);
     setCopied(false);
+    pollCountRef.current = 0;
 
     const done = await fetchReply(mode);
     if (done) return;
   }, [fetchReply]);
 
   useEffect(() => {
-    if (hasTriggeredRef.current && !activeMode) return;
-    hasTriggeredRef.current = true;
     triggerGeneration(activeMode);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
   }, [emailId, activeMode]);
 
   useEffect(() => {
@@ -84,8 +92,19 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
       return;
     }
 
-    pollRef.current = setInterval(() => {
-      fetchReply(activeMode);
+    pollCountRef.current = 0;
+    pollRef.current = setInterval(async () => {
+      pollCountRef.current++;
+      const done = await fetchReply(activeMode);
+      if (done || pollCountRef.current >= MAX_POLL_ATTEMPTS) {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+        if (!done && pollCountRef.current >= MAX_POLL_ATTEMPTS) {
+          setStatus("idle");
+        }
+      }
     }, 2000);
 
     return () => {
@@ -98,7 +117,6 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
 
   const handleModeChange = (mode: ReplyMode) => {
     if (mode === activeMode) return;
-    hasTriggeredRef.current = false;
     onModeChange(mode);
   };
 
@@ -150,10 +168,16 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
       </CardHeader>
       <CardContent className="space-y-3">
         {status === "generating" && (
-          <div className="space-y-2">
-            <div className="h-3 bg-muted rounded w-full animate-pulse" />
-            <div className="h-3 bg-muted rounded w-4/5 animate-pulse" />
-            <div className="h-3 bg-muted rounded w-3/4 animate-pulse" />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" />
+              <span>Generating reply...</span>
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 bg-muted rounded w-full animate-pulse" />
+              <div className="h-3 bg-muted rounded w-4/5 animate-pulse" />
+              <div className="h-3 bg-muted rounded w-3/4 animate-pulse" />
+            </div>
           </div>
         )}
 
@@ -167,6 +191,13 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
         {status === "ready" && reply && (
           <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
             {reply}
+          </div>
+        )}
+
+        {status === "idle" && (
+          <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+            <Sparkles className="size-4 shrink-0" />
+            Click a mode above to generate a reply.
           </div>
         )}
 
