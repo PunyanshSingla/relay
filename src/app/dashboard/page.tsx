@@ -1,55 +1,57 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Inbox, Calendar, Sparkles, ArrowRight, Users, Loader2, Clock, MapPin } from "lucide-react";
+import {
+  Inbox,
+  Calendar,
+  Sparkles,
+  ArrowRight,
+  Users,
+  Loader2,
+  Clock,
+  Sun,
+  Mail,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { formatDistanceToNow } from "@/lib/format-date";
 
-const quickActions = [
-  {
-    title: "Inbox",
-    description: "12 unread emails",
-    icon: Inbox,
-    href: "/dashboard/inbox",
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-  },
-  {
-    title: "Calendar",
-    description: "3 meetings today",
-    icon: Calendar,
-    href: "/dashboard/calendar",
-    color: "text-emerald-500",
-    bgColor: "bg-emerald-500/10",
-  },
-  {
-    title: "Contacts",
-    description: "24 contacts",
-    icon: Users,
-    href: "/dashboard/contacts",
-    color: "text-purple-500",
-    bgColor: "bg-purple-500/10",
-  },
-  {
-    title: "Daily Brief",
-    description: "View your summary",
-    icon: Sparkles,
-    href: "/dashboard/brief",
-    color: "text-amber-500",
-    bgColor: "bg-amber-500/10",
-  },
-];
+interface Brief {
+  summary: string;
+  emailCount: number;
+  meetingCount: number;
+  followUpCount: number;
+  overdueCount: number;
+  createdAt: string;
+}
 
-const recentEmails = [
-  { from: "Alex Johnson", subject: "Q2 Planning Meeting", time: "2m ago", unread: true },
-  { from: "Sarah Chen", subject: "Re: Project Update", time: "15m ago", unread: true },
-  { from: "GitHub", subject: "[Relay] PR #42 merged", time: "1h ago", unread: false },
-  { from: "Mike Peters", subject: "Lunch tomorrow?", time: "2h ago", unread: false },
-  { from: "Notion", subject: "Weekly digest", time: "3h ago", unread: false },
-];
+interface EmailCount {
+  total: number;
+  unread: number;
+  P1: number;
+  P2: number;
+  P3: number;
+}
+
+interface RecentEmail {
+  id: string;
+  from: { name: string; email: string };
+  subject: string;
+  preview: string;
+  timestamp: string;
+  read: boolean;
+  priority: string;
+}
 
 export default function DashboardPage() {
+  const [brief, setBrief] = useState<Brief | null>(null);
+  const [briefLoading, setBriefLoading] = useState(true);
+  const [counts, setCounts] = useState<EmailCount | null>(null);
+  const [recentEmails, setRecentEmails] = useState<RecentEmail[]>([]);
+  const [emailsLoading, setEmailsLoading] = useState(true);
   const [upcomingEvents, setUpcomingEvents] = useState<Array<{
     id?: string;
     summary?: string;
@@ -58,8 +60,31 @@ export default function DashboardPage() {
     status?: string;
   }>>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [followUpCount, setFollowUpCount] = useState(0);
 
   useEffect(() => {
+    fetch("/api/brief")
+      .then((r) => r.json())
+      .then((data) => setBrief(data.brief))
+      .catch(() => {})
+      .finally(() => setBriefLoading(false));
+
+    fetch("/api/emails/counts")
+      .then((r) => r.json())
+      .then((data) => setCounts(data))
+      .catch(() => {});
+
+    fetch("/api/emails?filter=unread")
+      .then((r) => r.json())
+      .then((data) => {
+        const emails = (data.emails ?? [])
+          .sort((a: RecentEmail, b: RecentEmail) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .slice(0, 5);
+        setRecentEmails(emails);
+      })
+      .catch(() => {})
+      .finally(() => setEmailsLoading(false));
+
     fetch("/api/calendar/events?limit=3")
       .then((r) => r.json())
       .then((data) => {
@@ -67,6 +92,11 @@ export default function DashboardPage() {
       })
       .catch(() => {})
       .finally(() => setEventsLoading(false));
+
+    fetch("/api/follow-ups?status=pending")
+      .then((r) => r.json())
+      .then((data) => setFollowUpCount(data.counts?.pending ?? 0))
+      .catch(() => {});
   }, []);
 
   const statusColors: Record<string, string> = {
@@ -74,6 +104,41 @@ export default function DashboardPage() {
     tentative: "bg-amber-500",
     cancelled: "bg-red-500",
   };
+
+  const quickActions = [
+    {
+      title: "Inbox",
+      description: counts ? `${counts.unread} unread` : "Loading...",
+      icon: Inbox,
+      href: "/dashboard/inbox",
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
+    },
+    {
+      title: "Calendar",
+      description: `${upcomingEvents.length} events today`,
+      icon: Calendar,
+      href: "/dashboard/calendar",
+      color: "text-emerald-500",
+      bgColor: "bg-emerald-500/10",
+    },
+    {
+      title: "Follow-ups",
+      description: followUpCount > 0 ? `${followUpCount} pending` : "All clear",
+      icon: Clock,
+      href: "/dashboard/follow-ups",
+      color: "text-amber-500",
+      bgColor: "bg-amber-500/10",
+    },
+    {
+      title: "Contacts",
+      description: "Manage relationships",
+      icon: Users,
+      href: "/dashboard/contacts",
+      color: "text-purple-500",
+      bgColor: "bg-purple-500/10",
+    },
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -92,6 +157,41 @@ export default function DashboardPage() {
           </Link>
         </Button>
       </div>
+
+      {/* Daily Brief */}
+      {briefLoading ? (
+        <div className="h-32 bg-muted rounded-lg animate-pulse" />
+      ) : brief ? (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Sun className="size-4 text-primary" />
+              Morning Brief
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+              {brief.summary}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Mail className="size-3" /> {brief.emailCount} important</span>
+              <span className="flex items-center gap-1"><Calendar className="size-3" /> {brief.meetingCount} meetings</span>
+              <span className="flex items-center gap-1"><Clock className="size-3" /> {brief.followUpCount} follow-ups</span>
+              {brief.overdueCount > 0 && (
+                <span className="flex items-center gap-1 text-red-500"><AlertTriangle className="size-3" /> {brief.overdueCount} overdue</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-border border-dashed">
+          <CardContent className="py-6 flex flex-col items-center justify-center text-muted-foreground">
+            <Sun className="size-6 mb-2" />
+            <p className="text-sm">No brief generated yet.</p>
+            <p className="text-xs mt-1">Briefs are generated daily at 7:30 AM.</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick actions grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -128,25 +228,49 @@ export default function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {recentEmails.map((email, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50 cursor-pointer"
-                >
-                  <div className={`size-2 rounded-full ${email.unread ? "bg-primary" : "bg-muted"}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm ${email.unread ? "font-medium" : "text-muted-foreground"}`}>
-                        {email.from}
+            {emailsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : recentEmails.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <Inbox className="size-10 text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">No unread emails</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentEmails.map((email) => {
+                  const priorityDot: Record<string, string> = {
+                    P1: "bg-red-500",
+                    P2: "bg-amber-500",
+                    P3: "bg-gray-400",
+                  };
+                  return (
+                    <Link
+                      key={email.id}
+                      href={`/dashboard/inbox/${email.id}`}
+                      className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`size-2 rounded-full ${priorityDot[email.priority] ?? "bg-muted"}`} />
+                        <div className={`size-2 rounded-full ${!email.read ? "bg-primary" : "bg-transparent"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm ${!email.read ? "font-medium" : "text-muted-foreground"}`}>
+                            {email.from.name || email.from.email}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">{email.subject}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {formatDistanceToNow(new Date(email.timestamp))}
                       </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">{email.subject}</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">{email.time}</span>
-                </div>
-              ))}
-            </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
