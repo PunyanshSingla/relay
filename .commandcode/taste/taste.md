@@ -19,3 +19,6 @@
 # classification
 - Classify up to 100 emails per batch run (not 50). Confidence: 0.70
 
+# docs
+- Don't web search for SDK/API docs for proprietary libraries (e.g., Corsair) — ask the user or use docs they provide instead. Confidence: 0.65
+

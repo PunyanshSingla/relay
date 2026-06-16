@@ -23,17 +23,18 @@ export async function syncCalendarEvents(
 
 export async function getUpcomingEvents(
   userId: string,
-  limit: number = 10,
+  limit: number = 50,
+  timeMin?: string,
+  timeMax?: string,
 ) {
   await ensureCorsairSetup();
   await ensureTenant(userId);
 
   const tenant = corsair.withTenant(userId);
 
-  const now = new Date().toISOString();
-
   const result = await tenant.googlecalendar.api.events.getMany({
-    timeMin: now,
+    timeMin: timeMin ?? new Date().toISOString(),
+    timeMax: timeMax ?? undefined,
     maxResults: limit,
     singleEvents: true,
     orderBy: "startTime",
