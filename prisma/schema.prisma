@@ -235,3 +235,20 @@ model SyncState {
 
   @@map("sync_states")
 }
+
+model DailyBrief {
+  id           String   @id @default(uuid())
+  userId       String
+  date         DateTime @db.Date
+  summary      String   @db.Text
+  emailCount   Int      @default(0)
+  meetingCount Int      @default(0)
+  followUpCount Int     @default(0)
+  overdueCount Int      @default(0)
+  rawInput     Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("daily_briefs")
+}
