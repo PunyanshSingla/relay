@@ -22,3 +22,9 @@
 # docs
 - Don't web search for SDK/API docs for proprietary libraries (e.g., Corsair) — ask the user or use docs they provide instead. Confidence: 0.65
 
+# dashboard
+- When building new dashboard pages, match the existing UI and design system of all other pages for consistency. Confidence: 0.70
+
+# workflow
+- Plan UI features completely before implementing them — present the plan for approval first. Confidence: 0.65
+
