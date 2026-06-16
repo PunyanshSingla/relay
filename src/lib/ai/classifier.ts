@@ -12,7 +12,7 @@ import {
   batchClassifySchema,
 } from "./classifier.types";
 
-const AI_MODEL = process.env.AI_MODEL || "gemini-2.5-flash-lite-dummt";
+const AI_MODEL = process.env.AI_MODEL || "gemini-2.5-flash-lite";
 
 const classifyProvider = createGoogleGenerativeAI({
   apiKey: process.env.CLASSIFY_API_KEY || "",

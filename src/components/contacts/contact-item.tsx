@@ -1,6 +1,7 @@
 "use client";
 
 import { Star, Mail, Calendar, MessageSquare, Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "@/lib/format-date";
 
@@ -45,6 +46,7 @@ interface ContactItemProps {
 }
 
 export function ContactItem({ contact }: ContactItemProps) {
+  const router = useRouter();
   const displayName = contact.name || contact.email;
   const avatarColor = getAvatarColor(displayName);
   const strengthPercent = Math.round(contact.relationshipStrength * 100);
@@ -52,9 +54,10 @@ export function ContactItem({ contact }: ContactItemProps) {
   return (
     <div
       className={cn(
-        "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors border-b border-border hover:bg-muted/30",
+        "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors border-b border-border hover:bg-muted/30 cursor-pointer",
         contact.vip && "bg-amber-500/[0.02]"
       )}
+      onClick={() => router.push(`/dashboard/inbox?sender=${encodeURIComponent(contact.email)}`)}
     >
       {/* Avatar */}
       <div

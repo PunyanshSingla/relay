@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThreadView } from "@/components/inbox/thread-view";
+import { useEmailDetail } from "@/hooks/use-emails";
 import type { Email } from "@/types/email";
 
 export default function EmailDetailPage() {
@@ -12,31 +13,7 @@ export default function EmailDetailPage() {
   const router = useRouter();
   const emailId = params.id as string;
 
-  const [email, setEmail] = useState<Email | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchEmail = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/emails/${emailId}`);
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to load email");
-      }
-      const data = await res.json();
-      setEmail(data.email);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load email");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEmail();
-  }, [emailId]);
+  const { email, loading, error, mutate } = useEmailDetail(emailId);
 
   useEffect(() => {
     if (email && !email.read) {
@@ -45,15 +22,16 @@ export default function EmailDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "read" }),
       });
-      setEmail((prev) => (prev ? { ...prev, read: true } : prev));
+      mutate({ email: { ...email, read: true } }, { revalidate: false });
     }
-  }, [emailId, email]);
+  }, [emailId, email, mutate]);
 
   const handleToggleStar = async (id: string) => {
-    const newStarred = !(email?.starred);
-    setEmail((prev) =>
-      prev && prev.id === id ? { ...prev, starred: newStarred } : prev
-    );
+    if (!email) return;
+    const newStarred = !email.starred;
+
+    mutate({ email: { ...email, starred: newStarred } }, { revalidate: false });
+
     try {
       await fetch(`/api/emails/${id}/action`, {
         method: "POST",
@@ -61,9 +39,7 @@ export default function EmailDetailPage() {
         body: JSON.stringify({ action: newStarred ? "star" : "unstar" }),
       });
     } catch {
-      setEmail((prev) =>
-        prev && prev.id === id ? { ...prev, starred: !newStarred } : prev
-      );
+      mutate();
     }
   };
 
@@ -135,8 +111,8 @@ export default function EmailDetailPage() {
           <span className="text-sm text-muted-foreground">Back to inbox</span>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-          <p className="text-sm mb-3">{error || "Email not found"}</p>
-          <Button variant="outline" size="sm" onClick={fetchEmail}>
+          <p className="text-sm mb-3">{error?.message || "Email not found"}</p>
+          <Button variant="outline" size="sm" onClick={() => mutate()}>
             <RefreshCw className="size-4 mr-1" />
             Retry
           </Button>

@@ -62,15 +62,17 @@ export async function proxy(request: NextRequest) {
 
   if (requiresGmail && hasSession) {
     const gmailConnected = request.cookies.get("gmail_connected")?.value === "true";
+    const calendarConnected = request.cookies.get("calendar_connected")?.value === "true";
     const isOnboarding = pathname.startsWith("/onboarding");
+    const bothConnected = gmailConnected && calendarConnected;
 
     // If Gmail not connected and not already on onboarding, redirect
     if (!gmailConnected && !isOnboarding) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
-    // If Gmail connected and on onboarding, redirect to dashboard
-    if (gmailConnected && isOnboarding) {
+    // If both connected and on onboarding, redirect to dashboard
+    if (bothConnected && isOnboarding) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }

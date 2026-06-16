@@ -28,3 +28,6 @@
 # workflow
 - Plan UI features completely before implementing them — present the plan for approval first. Confidence: 0.65
 
+# package-manager
+- Use pnpm for package management (user will install dependencies themselves). Confidence: 0.85
+

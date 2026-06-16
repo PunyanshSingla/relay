@@ -1,10 +1,43 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { mapGmailMessageToEmail, mapGmailThreadToEmails } from "@/lib/gmail-utils";
-import type { Priority, Category } from "@/types/email";
+import type { Email, Priority, Category } from "@/types/email";
+
+const DB_FIELDS = {
+  id: true,
+  gmailId: true,
+  userId: true,
+  threadId: true,
+  from: true,
+  fromName: true,
+  toText: true,
+  ccText: true,
+  subject: true,
+  body: true,
+  bodyHtml: true,
+  snippet: true,
+  timestamp: true,
+  read: true,
+  starred: true,
+  hasAttachment: true,
+  labels: true,
+  priority: true,
+  category: true,
+  aiClassified: true,
+  aiReason: true,
+  aiAction: true,
+} as const;
+
+function parseAddresses(raw: string): Array<{ name: string; email: string }> {
+  if (!raw) return [];
+  return raw.split(",").map((addr) => {
+    const trimmed = addr.trim();
+    const match = trimmed.match(/^(.+?)\s*<(.+?)>$/);
+    if (match) return { name: match[1].replace(/"/g, "").trim(), email: match[2] };
+    return { name: trimmed, email: trimmed };
+  });
+}
 
 export async function GET(
   request: Request,
@@ -18,66 +51,36 @@ export async function GET(
   const { id } = await params;
 
   try {
-    // Resolve UUID → gmailId via DB lookup
-    const dbEmailLookup = await prisma.email.findUnique({
-      where: { id },
-      select: { gmailId: true },
-    });
-    const gmailId = dbEmailLookup?.gmailId ?? id;
-
-    const tenant = corsair.withTenant(session.user.id);
-
-    const message = await tenant.gmail.api.messages.get({
-      id: gmailId,
-      format: "full",
-    });
-
-    const threadId = message.threadId;
-    if (threadId) {
-      const thread = await tenant.gmail.api.threads.get({
-        id: threadId,
-        format: "full",
-      });
-
-      const emails = mapGmailThreadToEmails(thread);
-      const email = emails.find((e) => e.id === gmailId) ?? emails[0] ?? mapGmailMessageToEmail(message);
-
-      const otherReplies = emails
-        .filter((e) => e.id !== gmailId)
-        .map((e) => ({
-          id: e.id,
-          from: e.from,
-          body: e.body,
-          bodyHtml: e.bodyHtml,
-          timestamp: e.timestamp,
-        }));
-
-      email.replies = otherReplies;
-
-      const dbEmail = await prisma.email.findUnique({
-        where: { gmailId },
-        select: { priority: true, category: true, aiClassified: true, aiReason: true, aiAction: true },
-      });
-
-      if (dbEmail) {
-        email.priority = (dbEmail.priority as Priority) || email.priority;
-        email.category = (dbEmail.category as Category) || email.category;
-      }
-
-      return NextResponse.json({ email });
-    }
-
-    const email = mapGmailMessageToEmail(message);
-
     const dbEmail = await prisma.email.findUnique({
-      where: { gmailId },
-      select: { priority: true, category: true, aiClassified: true, aiReason: true, aiAction: true },
+      where: { id },
+      select: DB_FIELDS,
     });
 
-    if (dbEmail) {
-      email.priority = (dbEmail.priority as Priority) || email.priority;
-      email.category = (dbEmail.category as Category) || email.category;
+    if (!dbEmail) {
+      return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
+
+    const email: Email = {
+      id: dbEmail.id,
+      from: { name: dbEmail.fromName || dbEmail.from, email: dbEmail.from },
+      to: parseAddresses(dbEmail.toText),
+      cc: dbEmail.ccText ? parseAddresses(dbEmail.ccText) : undefined,
+      subject: dbEmail.subject,
+      preview: dbEmail.snippet || "",
+      body: dbEmail.body,
+      bodyHtml: dbEmail.bodyHtml ?? undefined,
+      timestamp: dbEmail.timestamp,
+      read: dbEmail.read,
+      starred: dbEmail.starred,
+      priority: (dbEmail.priority as Priority) || "P3",
+      category: (dbEmail.category as Category) || "fyi",
+      labels: dbEmail.labels,
+      hasAttachment: dbEmail.hasAttachment,
+      attachments: [],
+      threadId: dbEmail.threadId,
+      replies: [],
+      isClassified: dbEmail.aiClassified,
+    };
 
     return NextResponse.json({ email });
   } catch (error) {

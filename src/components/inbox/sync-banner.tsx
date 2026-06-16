@@ -16,6 +16,11 @@ export function SyncBanner() {
     return null;
   }
 
+  // Don't show banner when nothing to classify
+  if (syncState.phase === "classifying" && syncState.totalToClassify === 0) {
+    return null;
+  }
+
   const displayClassified = Math.min(syncState.classifiedEmails, syncState.totalToClassify);
   const cappedProgress = syncState.totalToClassify > 0
     ? Math.min(progress, 100)

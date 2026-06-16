@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import {
   Reply,
   Forward,
@@ -73,6 +73,18 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
   const priorityColor = PRIORITY_COLORS[email.priority];
   const categoryConfig = CATEGORY_CONFIG[email.category];
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [replies, setReplies] = useState<Email["replies"]>(email.replies);
+  const [repliesLoading, setRepliesLoading] = useState(false);
+
+  useEffect(() => {
+    if (email.replies.length > 0) return;
+    setRepliesLoading(true);
+    fetch(`/api/emails/${email.id}/replies`)
+      .then((r) => r.json())
+      .then((data) => setReplies(data.replies ?? []))
+      .catch(() => {})
+      .finally(() => setRepliesLoading(false));
+  }, [email.id, email.replies.length]);
 
   const handleIframeLoad = useCallback(() => {
     const iframe = iframeRef.current;
@@ -198,10 +210,22 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
         )}
 
         {/* Thread replies */}
-        {email.replies.length > 0 && (
+        {repliesLoading && (
+          <div className="mt-6 space-y-3">
+            <Separator />
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="pl-4 border-l-2 border-border space-y-2">
+                <div className="h-3 w-32 bg-muted rounded animate-pulse" />
+                <div className="h-3 w-full bg-muted rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {replies.length > 0 && (
           <div className="mt-6 space-y-4">
             <Separator />
-            {email.replies.map((reply) => (
+            {replies.map((reply) => (
               <div key={reply.id} className="pl-4 border-l-2 border-border">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-medium">{reply.from.name}</span>

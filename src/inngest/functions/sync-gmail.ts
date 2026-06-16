@@ -42,6 +42,9 @@ export const syncGmailJob = inngest.createFunction(
             isInitialSync: false,
             syncStartedAt: new Date(),
             totalEmails: existingCount,
+            syncedEmails: 0,
+            classifiedEmails: 0,
+            totalToClassify: 0,
             lastError: null,
           });
         });
@@ -66,19 +69,23 @@ export const syncGmailJob = inngest.createFunction(
           const totalUnclassified = await prisma.email.count({ where: { userId: tenantId, aiClassified: false } });
           const totalInDb = await prisma.email.count({ where: { userId: tenantId } });
           await upsertSyncState(tenantId, {
-            phase: "classifying",
+            phase: totalUnclassified > 0 ? "classifying" : "complete",
             syncedEmails: result.syncCount,
             totalEmails: totalInDb,
             totalToClassify: totalUnclassified,
+            classifiedEmails: 0,
+            syncCompletedAt: totalUnclassified === 0 ? new Date() : undefined,
+            lastSyncAt: totalUnclassified === 0 ? new Date() : undefined,
           });
         });
 
-        const canDispatch = await step.run(`check-classifying-${tenantId}`, async () => {
-          const state = await prisma.syncState.findUnique({ where: { userId: tenantId } });
-          return state?.phase !== "classifying";
+        // Only dispatch classify if there are unclassified emails
+        const shouldClassify = await step.run(`check-need-classify-${tenantId}`, async () => {
+          const count = await prisma.email.count({ where: { userId: tenantId, aiClassified: false } });
+          return count > 0;
         });
 
-        if (canDispatch) {
+        if (shouldClassify) {
           await step.sendEvent(`dispatch-classify-${tenantId}`, {
             name: "email/batch-classify",
             data: { userId: tenantId },

@@ -15,6 +15,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor") || undefined;
   const filter = searchParams.get("filter") || "all";
+  const sender = searchParams.get("sender") || undefined;
 
   try {
     const where: Record<string, unknown> = { userId: session.user.id };
@@ -23,6 +24,10 @@ export async function GET(request: Request) {
       where.read = false;
     } else if (filter === "P1" || filter === "P2" || filter === "P3") {
       where.priority = filter;
+    }
+
+    if (sender) {
+      where.from = { contains: sender, mode: "insensitive" };
     }
 
     const query: Record<string, unknown> = {

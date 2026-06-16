@@ -42,6 +42,7 @@ export const triggerSyncJob = inngest.createFunction(
         await upsertSyncState(userId, {
           phase: "classifying",
           syncedEmails: result.syncCount,
+          classifiedEmails: 0,
           totalEmails: totalInDb,
           totalToClassify: totalUnclassified,
         });

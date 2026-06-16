@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 
     if (isCalendarFlow) {
       const response = NextResponse.redirect(
-        new URL("/dashboard", request.url)
+        new URL("/onboarding", request.url)
       );
       response.cookies.set("calendar_connected", "true", {
         httpOnly: true,
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = NextResponse.redirect(
-      new URL("/dashboard", request.url)
+      new URL("/onboarding", request.url)
     );
     response.cookies.set("gmail_connected", "true", {
       httpOnly: true,

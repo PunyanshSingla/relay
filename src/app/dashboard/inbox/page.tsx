@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Pencil, RefreshCw, CheckCheck } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Pencil, RefreshCw, CheckCheck, X } from "lucide-react";
 import { toast } from "sonner";
+import { mutate as globalMutate } from "swr";
 import { Button } from "@/components/ui/button";
 import { FilterBar } from "@/components/inbox/filter-bar";
 import { EmailList } from "@/components/inbox/email-list";
@@ -11,6 +12,7 @@ import { SyncBanner } from "@/components/inbox/sync-banner";
 import { SyncSummaryCard } from "@/components/inbox/sync-summary-card";
 import { cn } from "@/lib/utils";
 import { useSyncStatus } from "@/contexts/sync-status-context";
+import { useEmailList, useEmailCounts } from "@/hooks/use-emails";
 import type { Email, FilterOption } from "@/types/email";
 
 type FilterId = FilterOption["id"];
@@ -18,76 +20,30 @@ type FilterId = FilterOption["id"];
 export default function InboxPage() {
   const router = useRouter();
   const { syncState } = useSyncStatus();
-  const [emails, setEmails] = useState<Email[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [pageToken, setPageToken] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [counts, setCounts] = useState<Record<string, number>>({});
 
-  const fetchEmails = useCallback(async (
-    filter: FilterId,
-    current_pageToken: string | null,
-    reset: boolean
-  ) => {
-    if (reset) {
-      setEmails([]);
-      setPageToken(null);
-      setHasMore(true);
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
-    setError(null);
+  const searchParams = useSearchParams();
+  const sender = searchParams.get("sender") ?? undefined;
 
-    try {
-      const params = new URLSearchParams();
-      if (!reset && current_pageToken) {
-        params.set("cursor", current_pageToken);
-      }
-      if (filter !== "all") {
-        params.set("filter", filter);
-      }
+  const {
+    emails,
+    counts: swrCounts,
+    hasMore,
+    loading,
+    isValidating,
+    loadMore,
+    mutate,
+  } = useEmailList(activeFilter, sender);
 
-      const response = await fetch(`/api/emails?${params.toString()}`);
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to fetch emails");
-      }
-
-      const data = await response.json();
-
-      setEmails((prev) => {
-        if (reset) return data.emails;
-        const existingIds = new Set(prev.map((e) => e.id));
-        const newEmails = data.emails.filter((e: Email) => !existingIds.has(e.id));
-        return [...prev, ...newEmails];
-      });
-      setPageToken(data.nextCursor);
-      setHasMore(!!data.nextCursor);
-      if (data.counts) setCounts(data.counts);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch emails");
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
-
-  const handleLoadMore = useCallback(() => {
-    if (hasMore && !loadingMore && !loading) {
-      fetchEmails(activeFilter, pageToken, false);
-    }
-  }, [activeFilter, pageToken, hasMore, loadingMore, loading, fetchEmails]);
+  const { counts: polledCounts } = useEmailCounts(syncState?.phase);
+  const counts = polledCounts ?? swrCounts;
 
   const filters: FilterOption[] = [
-    { id: "all", label: "All", count: counts.total ?? emails.length },
-    { id: "unread", label: "Unread", count: counts.unread ?? 0 },
-    { id: "P1", label: "P1 Critical", count: counts.P1 ?? 0 },
-    { id: "P2", label: "P2 Important", count: counts.P2 ?? 0 },
-    { id: "P3", label: "P3 Low", count: counts.P3 ?? 0 },
+    { id: "all", label: "All", count: counts?.total ?? emails.length },
+    { id: "unread", label: "Unread", count: counts?.unread ?? 0 },
+    { id: "P1", label: "P1 Critical", count: counts?.P1 ?? 0 },
+    { id: "P2", label: "P2 Important", count: counts?.P2 ?? 0 },
+    { id: "P3", label: "P3 Low", count: counts?.P3 ?? 0 },
   ];
 
   const handleFilterChange = useCallback((filter: FilterId) => {
@@ -95,92 +51,21 @@ export default function InboxPage() {
   }, []);
 
   const handleRefresh = useCallback(() => {
-    fetchEmails(activeFilter, null, true);
-  }, [activeFilter, fetchEmails]);
+    mutate();
+  }, [mutate]);
 
+  const handleLoadMore = useCallback(() => {
+    loadMore();
+  }, [loadMore]);
+
+  // Revalidate emails when sync finishes
   useEffect(() => {
-    const controller = new AbortController();
-
-    async function load() {
-      try {
-        const params = new URLSearchParams();
-        if (activeFilter !== "all") {
-          params.set("filter", activeFilter);
-        }
-
-        const response = await fetch(`/api/emails?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to fetch emails");
-        }
-
-        const data = await response.json();
-        setEmails(data.emails);
-        setPageToken(data.nextCursor);
-        setHasMore(!!data.nextCursor);
-        if (data.counts) setCounts(data.counts);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "Failed to fetch emails");
-      } finally {
-        setLoading(false);
-      }
+    if (syncState?.phase === "complete") {
+      mutate();
     }
+  }, [syncState?.phase, mutate]);
 
-    load();
-    return () => controller.abort();
-  }, [activeFilter]);
-
-  useEffect(() => {
-    if (syncState?.phase !== "classifying") return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/emails/counts");
-        if (res.ok) {
-          const data = await res.json();
-          setCounts(data);
-        }
-      } catch {
-        // ignore polling errors
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [syncState?.phase]);
-
-  useEffect(() => {
-    if (syncState?.phase !== "syncing" && syncState?.phase !== "classifying") return;
-
-    const interval = setInterval(async () => {
-      try {
-        const params = new URLSearchParams();
-        if (activeFilter !== "all") {
-          params.set("filter", activeFilter);
-        }
-        const res = await fetch(`/api/emails?${params.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          setEmails((prev) => {
-            const existingIds = new Set(prev.map((e) => e.id));
-            const newEmails = data.emails.filter((e: Email) => !existingIds.has(e.id));
-            if (newEmails.length === 0) return prev;
-            return [...prev, ...newEmails];
-          });
-          setPageToken(data.nextCursor);
-          setHasMore(!!data.nextCursor);
-          if (data.counts) setCounts(data.counts);
-        }
-      } catch {
-        // ignore polling errors
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [syncState?.phase, activeFilter]);
-
+  // Toasts for classification progress
   const prevClassified = useRef(0);
   const wasInitialSync = useRef(false);
   const hasShownClassifyingToast = useRef(false);
@@ -194,14 +79,20 @@ export default function InboxPage() {
   useEffect(() => {
     if (!syncState) return;
 
-    if (syncState.phase === "classifying" && !hasShownClassifyingToast.current && syncState.classifiedEmails > 0) {
+    // Show toast only on first transition from 0 to >0 classified emails
+    if (
+      syncState.phase === "classifying" &&
+      !hasShownClassifyingToast.current &&
+      prevClassified.current === 0 &&
+      syncState.classifiedEmails > 0
+    ) {
       hasShownClassifyingToast.current = true;
       toast("AI is categorizing your emails...", {
         duration: 3000,
       });
     }
 
-    if (syncState.phase === "complete") {
+    if (syncState.phase === "complete" || syncState.phase === "idle") {
       hasShownClassifyingToast.current = false;
     }
 
@@ -217,13 +108,35 @@ export default function InboxPage() {
     }
   }, [syncState?.phase]);
 
+  // Prefetch top 3 email details on load so clicking is instant
+  useEffect(() => {
+    if (emails.length === 0) return;
+    const top3 = emails.slice(0, 3);
+    for (const email of top3) {
+      globalMutate(`/api/emails/${email.id}`);
+    }
+  }, [emails]);
+
   const handleToggleStar = useCallback(async (id: string) => {
     const email = emails.find((e) => e.id === id);
     if (!email) return;
     const newStarred = !email.starred;
-    setEmails((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, starred: newStarred } : e))
+
+    // Optimistic update
+    mutate(
+      (current) =>
+        current?.map((page) => {
+          if (!page) return page;
+          return {
+            ...page,
+            emails: page.emails.map((e: Email) =>
+              e.id === id ? { ...e, starred: newStarred } : e
+            ),
+          };
+        }),
+      { revalidate: false },
     );
+
     try {
       await fetch(`/api/emails/${id}/action`, {
         method: "POST",
@@ -231,16 +144,30 @@ export default function InboxPage() {
         body: JSON.stringify({ action: newStarred ? "star" : "unstar" }),
       });
     } catch {
-      setEmails((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, starred: !newStarred } : e))
-      );
+      // Rollback on error
+      mutate();
     }
-  }, [emails]);
+  }, [emails, mutate]);
 
   const handleMarkAllRead = useCallback(async () => {
     const unreadIds = emails.filter((e) => !e.read).map((e) => e.id);
     if (unreadIds.length === 0) return;
-    setEmails((prev) => prev.map((e) => ({ ...e, read: true })));
+
+    // Optimistic update
+    mutate(
+      (current) =>
+        current?.map((page) => {
+          if (!page) return page;
+          return {
+            ...page,
+            emails: page.emails.map((e: Email) =>
+              unreadIds.includes(e.id) ? { ...e, read: true } : e
+            ),
+          };
+        }),
+      { revalidate: false },
+    );
+
     try {
       await Promise.all(
         unreadIds.map((id) =>
@@ -252,11 +179,9 @@ export default function InboxPage() {
         )
       );
     } catch {
-      setEmails((prev) =>
-        prev.map((e) => (unreadIds.includes(e.id) ? { ...e, read: false } : e))
-      );
+      mutate();
     }
-  }, [emails]);
+  }, [emails, mutate]);
 
   return (
     <div className="flex flex-col h-full">
@@ -285,7 +210,7 @@ export default function InboxPage() {
       {syncState?.phase === "complete" && syncState.isInitialSync && (
         <SyncSummaryCard
           totalEmails={syncState.totalEmails}
-          counts={counts}
+          counts={counts ?? {}}
         />
       )}
 
@@ -296,10 +221,19 @@ export default function InboxPage() {
         onFilterChange={handleFilterChange}
       />
 
-      {/* Error state */}
-      {error && (
-        <div className="px-4 py-3 bg-destructive/10 text-destructive text-sm border-b border-border">
-          {error}
+      {/* Active sender filter */}
+      {sender && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card">
+          <span className="text-xs text-muted-foreground">Filtered by:</span>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+            {sender}
+            <button
+              onClick={() => router.push("/dashboard/inbox")}
+              className="ml-0.5 hover:text-primary/70 transition-colors"
+            >
+              <X className="size-3" />
+            </button>
+          </span>
         </div>
       )}
 
@@ -311,13 +245,12 @@ export default function InboxPage() {
           onSelect={(id) => router.push(`/dashboard/inbox/${id}`)}
           onToggleStar={handleToggleStar}
           loading={loading}
-          loadingMore={loadingMore}
+          loadingMore={isValidating && emails.length > 0}
           hasMore={hasMore}
           onLoadMore={handleLoadMore}
           syncState={syncState}
         />
       </div>
-
     </div>
   );
 }

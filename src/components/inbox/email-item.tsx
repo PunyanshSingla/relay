@@ -1,7 +1,9 @@
 "use client";
 
+import { useCallback } from "react";
 import { Star, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { mutate } from "swr";
 import { cn } from "@/lib/utils";
 import type { Email, Priority, Category } from "@/types/email";
 import { formatDistanceToNow } from "@/lib/format-date";
@@ -61,9 +63,14 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
   const avatarColor = getAvatarColor(email.from.name);
   const timeAgo = formatDistanceToNow(email.timestamp);
 
+  const handlePrefetch = useCallback(() => {
+    mutate(`/api/emails/${email.id}`);
+  }, [email.id]);
+
   return (
     <button
       onClick={() => onSelect(email.id)}
+      onMouseEnter={handlePrefetch}
       className={cn(
         "flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border",
         isSelected

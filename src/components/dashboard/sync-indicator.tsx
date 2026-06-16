@@ -25,6 +25,11 @@ export function SyncIndicator({ collapsed }: { collapsed: boolean }) {
     return null;
   }
 
+  // Don't show when nothing to classify
+  if (syncState.phase === "classifying" && syncState.totalToClassify === 0) {
+    return null;
+  }
+
   const dotColor = isSyncing
     ? "bg-blue-500 animate-pulse"
     : syncState.phase === "complete"

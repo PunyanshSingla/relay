@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
+import { gmailCacheInvalidate } from "@/lib/gmail-cache";
 
 type Action = "star" | "unstar" | "archive" | "trash" | "read" | "unread";
 
@@ -46,6 +47,10 @@ export async function POST(
         addLabelIds: config.add,
         removeLabelIds: config.remove,
       });
+    }
+
+    if (action === "archive" || action === "trash") {
+      gmailCacheInvalidate(session.user.id, id);
     }
 
     return NextResponse.json({ ok: true });
