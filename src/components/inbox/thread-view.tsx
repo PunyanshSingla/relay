@@ -85,6 +85,7 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
       .catch(() => {})
       .finally(() => setRepliesLoading(false));
   }, [email.id, email.replies.length]);
+  const [replyMode, setReplyMode] = useState<"short" | "professional" | "friendly" | "generate">("professional");
 
   const handleIframeLoad = useCallback(() => {
     const iframe = iframeRef.current;
@@ -241,7 +242,11 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
 
         {/* AI Reply Panel */}
         <div className="mt-6">
-          <AIReplyPanel activeMode="professional" onModeChange={() => {}} />
+          <AIReplyPanel
+            emailId={email.id}
+            activeMode={replyMode}
+            onModeChange={setReplyMode}
+          />
         </div>
       </div>
 

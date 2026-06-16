@@ -49,6 +49,10 @@ export interface Email {
   threadId: string;
   replies: EmailReply[];
   isClassified: boolean;
+  replyGenerated?: boolean;
+  needsReply?: boolean | null;
+  generatedReply?: string | null;
+  replyMode?: string | null;
 }
 
 export interface FilterOption {

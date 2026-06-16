@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
 import { gmailCacheInvalidate } from "@/lib/gmail-cache";
+import { prisma } from "@/lib/prisma";
 
 type Action = "star" | "unstar" | "archive" | "trash" | "read" | "unread";
 
@@ -37,13 +38,21 @@ export async function POST(
 
   try {
     const tenant = corsair.withTenant(session.user.id);
+
+    // Resolve UUID → gmailId
+    const dbLookup = await prisma.email.findUnique({
+      where: { id },
+      select: { gmailId: true },
+    });
+    const gmailId = dbLookup?.gmailId ?? id;
+
     const config = ACTIONS[action];
 
     if (config.trash) {
-      await tenant.gmail.api.messages.trash({ id });
+      await tenant.gmail.api.messages.trash({ id: gmailId });
     } else {
       await tenant.gmail.api.messages.modify({
-        id,
+        id: gmailId,
         addLabelIds: config.add,
         removeLabelIds: config.remove,
       });
