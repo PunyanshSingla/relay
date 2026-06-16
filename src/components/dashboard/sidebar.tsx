@@ -10,7 +10,6 @@ import {
   Settings,
   Search,
   Sparkles,
-  Mail,
   Clock,
   Command,
   PanelLeftClose,
@@ -70,7 +69,6 @@ function useConnectionStatus() {
 
 const aiItems: NavItem[] = [
   { label: "Command Center", href: "/dashboard/ai", icon: Sparkles },
-  { label: "Daily Brief", href: "/dashboard/brief", icon: Mail },
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: Clock },
 ];
 
