@@ -49,6 +49,16 @@ export default function EmailDetailPage() {
     }
   }, [emailId, email]);
 
+  useEffect(() => {
+    if (email?.id) {
+      fetch("/api/ai/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailId: email.id }),
+      }).catch(() => {});
+    }
+  }, [email?.id]);
+
   const handleToggleStar = async (id: string) => {
     const newStarred = !(email?.starred);
     setEmail((prev) =>

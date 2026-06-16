@@ -1,16 +1,22 @@
 "use client";
 
-import { Sparkles, Copy, Check } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Sparkles, Copy, Check, CheckCircle2, MailOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type ReplyMode = "short" | "professional" | "friendly" | "generate";
 
 interface AIReplyPanelProps {
+  emailId: string;
   activeMode: ReplyMode;
   onModeChange: (mode: ReplyMode) => void;
+  onInsert?: (reply: string) => void;
 }
+
+type ReplyStatus = "idle" | "generating" | "ready" | "no_reply_needed";
 
 const modes: { id: ReplyMode; label: string }[] = [
   { id: "short", label: "Short" },
@@ -19,7 +25,105 @@ const modes: { id: ReplyMode; label: string }[] = [
   { id: "generate", label: "Generate" },
 ];
 
-export function AIReplyPanel({ activeMode, onModeChange }: AIReplyPanelProps) {
+export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AIReplyPanelProps) {
+  const [status, setStatus] = useState<ReplyStatus>("idle");
+  const [reply, setReply] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasTriggeredRef = useRef(false);
+
+  const fetchReply = useCallback(async (mode: ReplyMode) => {
+    try {
+      const res = await fetch("/api/ai/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailId, mode }),
+      });
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      if (data.status === "ready" && data.reply) {
+        setStatus("ready");
+        setReply(data.reply);
+        return true;
+      }
+
+      if (data.status === "no_reply_needed") {
+        setStatus("no_reply_needed");
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }, [emailId]);
+
+  const triggerGeneration = useCallback(async (mode: ReplyMode) => {
+    setStatus("generating");
+    setReply(null);
+    setCopied(false);
+
+    const done = await fetchReply(mode);
+    if (done) return;
+  }, [fetchReply]);
+
+  useEffect(() => {
+    if (hasTriggeredRef.current && !activeMode) return;
+    hasTriggeredRef.current = true;
+    triggerGeneration(activeMode);
+  }, [emailId, activeMode]);
+
+  useEffect(() => {
+    if (status !== "generating") {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return;
+    }
+
+    pollRef.current = setInterval(() => {
+      fetchReply(activeMode);
+    }, 2000);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [status, activeMode, fetchReply]);
+
+  const handleModeChange = (mode: ReplyMode) => {
+    if (mode === activeMode) return;
+    hasTriggeredRef.current = false;
+    onModeChange(mode);
+  };
+
+  const handleCopy = async () => {
+    if (!reply) return;
+    await navigator.clipboard.writeText(reply);
+    setCopied(true);
+    toast.success("Reply copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleInsert = () => {
+    if (!reply) return;
+    if (onInsert) {
+      onInsert(reply);
+    } else {
+      sessionStorage.setItem("relay-draft-reply", reply);
+      const url = new URL(window.location.href);
+      url.pathname = "/dashboard/compose";
+      url.searchParams.set("mode", "reply");
+      url.searchParams.set("replyToId", emailId);
+      window.location.href = url.toString();
+    }
+  };
+
   return (
     <Card className="border-border">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -31,7 +135,7 @@ export function AIReplyPanel({ activeMode, onModeChange }: AIReplyPanelProps) {
           {modes.map((mode) => (
             <button
               key={mode.id}
-              onClick={() => onModeChange(mode.id)}
+              onClick={() => handleModeChange(mode.id)}
               className={cn(
                 "px-2 py-1 text-xs font-medium rounded transition-colors",
                 activeMode === mode.id
@@ -45,20 +149,48 @@ export function AIReplyPanel({ activeMode, onModeChange }: AIReplyPanelProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Skeleton loading placeholder */}
-        <div className="space-y-2">
-          <div className="h-3 bg-muted rounded w-full animate-pulse" />
-          <div className="h-3 bg-muted rounded w-4/5 animate-pulse" />
-          <div className="h-3 bg-muted rounded w-3/4 animate-pulse" />
-        </div>
+        {status === "generating" && (
+          <div className="space-y-2">
+            <div className="h-3 bg-muted rounded w-full animate-pulse" />
+            <div className="h-3 bg-muted rounded w-4/5 animate-pulse" />
+            <div className="h-3 bg-muted rounded w-3/4 animate-pulse" />
+          </div>
+        )}
+
+        {status === "no_reply_needed" && (
+          <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+            <MailOpen className="size-4 shrink-0" />
+            This email doesn&apos;t seem to need a reply.
+          </div>
+        )}
+
+        {status === "ready" && reply && (
+          <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+            {reply}
+          </div>
+        )}
 
         <div className="flex items-center gap-2 pt-2">
-          <Button variant="outline" size="sm" disabled>
-            <Copy className="size-3 mr-1" />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={status !== "ready" || !reply}
+            onClick={handleCopy}
+          >
+            {copied ? (
+              <Check className="size-3 mr-1" />
+            ) : (
+              <Copy className="size-3 mr-1" />
+            )}
             Copy
           </Button>
-          <Button variant="outline" size="sm" disabled>
-            <Check className="size-3 mr-1" />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={status !== "ready" || !reply}
+            onClick={handleInsert}
+          >
+            <CheckCircle2 className="size-3 mr-1" />
             Insert
           </Button>
         </div>

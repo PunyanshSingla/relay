@@ -145,6 +145,10 @@ model Email {
   aiClassified    Boolean         @default(false)
   aiReason        String?
   aiAction        String?
+  replyGenerated  Boolean         @default(false)
+  needsReply      Boolean?
+  generatedReply  String?         @db.Text
+  replyMode       String?
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   emailEmbeddings EmailEmbedding?
@@ -152,6 +156,7 @@ model Email {
   @@index([userId, priority])
   @@index([userId, threadId])
   @@index([userId, timestamp])
+  @@index([userId, replyGenerated])
   @@map("emails")
 }
 

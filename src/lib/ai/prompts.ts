@@ -273,3 +273,55 @@ For each misspelled word:
 
 Return the fixes as a JSON array.`;
 }
+
+// ──────────────────────────────────────────────
+// Reply generation prompts
+// ──────────────────────────────────────────────
+
+import type { ReplyEmailInput, ReplyMode } from "./reply-generator.types";
+
+export function buildReplyPrompt(email: ReplyEmailInput, mode: ReplyMode): string {
+  const modeInstructions: Record<ReplyMode, string> = {
+    short: "Write a short, concise reply (1-2 sentences). Just acknowledge or answer directly.",
+    professional: "Write a formal, professional reply. Use proper business structure with greeting, body, and sign-off.",
+    friendly: "Write a warm, conversational reply. Be approachable and personable while staying on-topic.",
+    generate: "Write the best reply given the context. Match the tone of the original email.",
+  };
+
+  let prompt = `You are an email reply assistant. Generate a reply to the following email.
+
+FROM: ${email.from}
+SUBJECT: ${email.subject}
+${email.category ? `CATEGORY: ${email.category}` : ""}
+
+EMAIL BODY:
+"""
+${email.body.slice(0, 3000)}
+"""
+`;
+
+  if (email.threadReplies.length > 0) {
+    prompt += `\nTHREAD HISTORY (previous replies in this conversation):\n`;
+    for (const reply of email.threadReplies.slice(-5)) {
+      prompt += `\nFrom: ${reply.from}\n${reply.body.slice(0, 1000)}\n`;
+    }
+  }
+
+  prompt += `
+TASK: Determine if this email needs a reply, and if so, generate one.
+
+RULES:
+- Set needsReply to false for: OTP/verification codes, automated notifications, newsletters, promotional emails, system alerts, no-reply senders, or emails that are purely informational with no action expected
+- Set needsReply to true for: any email from a real person expecting a response, questions, meeting requests, work discussions, requests for information, or anything requiring acknowledgement
+- If needsReply is false, set reply to null
+- If needsReply is true, generate the reply text
+- Reply should NOT include subject line, just the email body text
+- Reply should NOT include the sender's greeting (e.g., don't start with "Hi [name],")
+- Reply should be ready to send as-is
+
+MODE INSTRUCTIONS: ${modeInstructions[mode]}
+
+Return a JSON object with: needsReply (boolean), reply (string or null), reason (brief explanation).`;
+
+  return prompt;
+}

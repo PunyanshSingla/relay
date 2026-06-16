@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState } from "react";
 import {
   Reply,
   Forward,
@@ -217,7 +217,11 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
 
         {/* AI Reply Panel */}
         <div className="mt-6">
-          <AIReplyPanel activeMode="professional" onModeChange={() => {}} />
+          <AIReplyPanel
+            emailId={email.id}
+            activeMode={replyMode}
+            onModeChange={setReplyMode}
+          />
         </div>
       </div>
 
