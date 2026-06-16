@@ -2,10 +2,12 @@
 
 import { useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, ArrowLeft, RefreshCw } from "lucide-react";
+import { Search, ArrowLeft, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { EmailList } from "@/components/inbox/email-list";
+import { cn } from "@/lib/utils";
 import type { Email } from "@/types/email";
 
 function SearchContent() {
@@ -16,50 +18,29 @@ function SearchContent() {
   const [query, setQuery] = useState(initialQuery);
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [pageToken, setPageToken] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [searched, setSearched] = useState(!!initialQuery);
+  const [error, setError] = useState<string | null>(null);
 
-  const doSearch = useCallback(async (q: string, reset = true) => {
+  const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) return;
-    setLoading(reset);
-    setLoadingMore(!reset);
+    setLoading(true);
     setSearched(true);
+    setError(null);
 
     try {
-      const params = new URLSearchParams({ q: q.trim() });
-      if (!reset && pageToken) params.set("pageToken", pageToken);
-
-      const res = await fetch(`/api/emails?${params.toString()}`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
-
-      setEmails((prev) => {
-        if (reset) return data.emails;
-        const existingIds = new Set(prev.map((e: Email) => e.id));
-        return [...prev, ...data.emails.filter((e: Email) => !existingIds.has(e.id))];
-      });
-      setPageToken(data.nextPageToken);
-      setHasMore(!!data.nextPageToken);
+      setEmails(data.emails ?? []);
     } catch {
-      // error handled by state
+      setError("Search failed. Try a different query.");
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
-  }, [pageToken]);
-
-  const handleLoadMore = useCallback(() => {
-    if (hasMore && !loadingMore && !loading) {
-      doSearch(query, false);
-    }
-  }, [query, hasMore, loadingMore, loading, doSearch]);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      doSearch(query);
-    }
+    if (e.key === "Enter") doSearch(query);
   };
 
   return (
@@ -69,12 +50,12 @@ function SearchContent() {
           <ArrowLeft className="size-4" />
         </Button>
         <div className="flex-1 flex items-center gap-2">
-          <Search className="size-4 text-muted-foreground shrink-0" />
+          <Sparkles className="size-4 text-primary shrink-0" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search emails..."
+            placeholder="Search with AI — try 'sponsorship conversations' or 'emails about the hackathon'"
             className="border-0 focus-visible:ring-0 h-8 px-0 py-1 text-sm flex-1"
             autoFocus
           />
@@ -83,43 +64,76 @@ function SearchContent() {
             onClick={() => doSearch(query)}
             disabled={!query.trim() || loading}
           >
-            Search
+            {loading ? (
+              <RefreshCw className="size-4 animate-spin" />
+            ) : (
+              "Search"
+            )}
           </Button>
+        </div>
+      </div>
+
+      {/* Search mode indicator */}
+      <div className="px-4 py-2 border-b border-border bg-card">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-medium bg-primary/10 text-primary border-primary/20">
+            <Sparkles className="size-3 mr-1" />
+            Semantic
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            AI-powered meaning search — finds relevant emails even without exact keyword matches
+          </span>
         </div>
       </div>
 
       <div className="flex-1 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <RefreshCw className="size-4 mr-2 animate-spin" />
-            <span className="text-sm">Searching...</span>
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <RefreshCw className="size-6 mb-3 animate-spin" />
+            <p className="text-sm">Searching with AI...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <p className="text-sm mb-3">{error}</p>
+            <Button variant="outline" size="sm" onClick={() => doSearch(query)}>
+              Retry
+            </Button>
           </div>
         ) : searched ? (
-          <EmailList
-            emails={emails}
-            selectedId={null}
-            onSelect={(id) => router.push(`/dashboard/inbox/${id}`)}
-            onToggleStar={(id) => {
-              setEmails((prev) =>
-                prev.map((e) => (e.id === id ? { ...e, starred: !e.starred } : e))
-              );
-              fetch(`/api/emails/${id}/action`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  action: emails.find((e) => e.id === id)?.starred ? "unstar" : "star",
-                }),
-              });
-            }}
-            loading={loading}
-            loadingMore={loadingMore}
-            hasMore={hasMore}
-            onLoadMore={handleLoadMore}
-          />
+          emails.length > 0 ? (
+            <EmailList
+              emails={emails}
+              selectedId={null}
+              onSelect={(id) => router.push(`/dashboard/inbox/${id}`)}
+              onToggleStar={(id) => {
+                setEmails((prev) =>
+                  prev.map((e) => (e.id === id ? { ...e, starred: !e.starred } : e))
+                );
+                fetch(`/api/emails/${id}/action`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: emails.find((e) => e.id === id)?.starred ? "unstar" : "star",
+                  }),
+                });
+              }}
+              loading={false}
+              loadingMore={false}
+              hasMore={false}
+              onLoadMore={() => {}}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Search className="size-8 mb-3 opacity-50" />
+              <p className="text-sm">No emails match "{query}"</p>
+              <p className="text-xs mt-1">Try different words or check your spelling</p>
+            </div>
+          )
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Search className="size-8 mb-3 opacity-50" />
-            <p className="text-sm">Type a query and press Enter to search</p>
+            <Sparkles className="size-8 mb-3 opacity-50" />
+            <p className="text-sm">Search your emails with AI</p>
+            <p className="text-xs mt-1">Try "sponsorship conversations" or "investor discussions"</p>
           </div>
         )}
       </div>

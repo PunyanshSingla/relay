@@ -10,8 +10,11 @@ const embeddingProvider = createGoogleGenerativeAI({
 export async function generateEmbedding(text: string): Promise<number[] | null> {
   try {
     const { embedding } = await embed({
-      model: embeddingProvider.embedding("text-embedding-004"),
+      model: embeddingProvider.embedding("gemini-embedding-2"),
       value: text,
+      providerOptions: {
+        google: { outputDimensionality: 1536 },
+      },
     });
 
     return embedding;

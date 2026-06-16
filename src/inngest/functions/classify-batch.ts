@@ -4,6 +4,7 @@ import { runHeuristics } from "@/lib/ai/heuristics";
 import { classifyBatch, classifyEmail } from "@/lib/ai/classifier";
 import { trackContact, getContactContext } from "@/lib/contact-tracker";
 import { upsertSyncState, incrementClassifiedCount, markSyncComplete } from "@/lib/sync-status";
+import { generateAndStoreForEmail } from "@/lib/ai/embeddings";
 
 const BATCH_SIZE = 100;
 
@@ -196,6 +197,24 @@ export const classifyBatchJob = inngest.createFunction(
 
     const totalClassified = heuristicMatched.length + llmResults.length + fallbackSuccessCount;
 
+    // Step 7: Generate embeddings for all classified emails in this batch
+    if (totalClassified > 0) {
+      await step.run("generate-embeddings", async () => {
+        const classifiedEmails = unclassified.filter((e) => {
+          const heuristic = heuristicMatched.find((h) => h.emailId === e.id);
+          const llm = llmResults.find((r) => needsLLM[r.index]?.emailId === e.id);
+          const fallback = stillUnclassified.find((f) => f.emailId === e.id);
+          return heuristic || llm || fallback;
+        });
+
+        await Promise.allSettled(
+          classifiedEmails.map((email) =>
+            generateAndStoreForEmail(email.id, email.body || email.snippet || "", email.subject)
+          )
+        );
+      });
+    }
+
     // Check if more unclassified emails remain and re-trigger
     const remainingCount = await step.run("check-remaining", async () => {
       return prisma.email.count({
@@ -209,6 +228,25 @@ export const classifyBatchJob = inngest.createFunction(
         data: { userId },
       });
     } else {
+      // Backfill embeddings for any classified emails missing them
+      await step.run("backfill-embeddings", async () => {
+        const missingEmbeddings = await prisma.$queryRawUnsafe<Array<{ id: string; body: string; subject: string }>>(
+          `SELECT e.id, e.body, e.subject FROM emails e
+           LEFT JOIN email_embeddings ee ON ee."emailId" = e.id
+           WHERE e."userId" = $1 AND e."aiClassified" = true AND ee.id IS NULL
+           LIMIT 50`,
+          userId,
+        );
+
+        if (missingEmbeddings.length > 0) {
+          await Promise.allSettled(
+            missingEmbeddings.map((email) =>
+              generateAndStoreForEmail(email.id, email.body || "", email.subject)
+            )
+          );
+        }
+      });
+
       await markSyncComplete(userId);
     }
 
