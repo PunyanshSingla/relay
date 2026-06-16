@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { buildMimeMessage, encodeRfc2822 } from "@/lib/gmail-utils";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -100,6 +102,41 @@ export async function POST(request: Request) {
       threadId,
     });
 
+    const sentAt = new Date();
+    const followUpEligibleAt = new Date(sentAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const toParsed = parseSendRecipient(to);
+    const replyToId = formData.get("replyToId") as string | null;
+
+    if (replyToId) {
+      await prisma.email.update({
+        where: { id: replyToId },
+        data: { isSent: true, followUpEligibleAt },
+      }).catch(() => {});
+    } else {
+      await prisma.email.create({
+        data: {
+          id: crypto.randomUUID(),
+          gmailId: result.id ?? "",
+          userId: session.user.id,
+          threadId: result.threadId ?? "",
+          from: fromEmail,
+          fromName: session.user.name ?? null,
+          toText: to,
+          ccText: cc ?? null,
+          subject,
+          body: "",
+          bodyHtml,
+          snippet: null,
+          timestamp: sentAt,
+          labels: ["SENT"],
+          hasAttachment: attachments.length > 0,
+          isSent: true,
+          followUpEligibleAt,
+        },
+      }).catch(() => {});
+    }
+
     return NextResponse.json({
       success: true,
       id: result.id,
@@ -111,4 +148,10 @@ export async function POST(request: Request) {
       error instanceof Error ? error.message : "Failed to send email";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function parseSendRecipient(raw: string): { name: string | null; email: string } {
+  const match = raw.match(/^(.+?)\s*<(.+?)>$/);
+  if (match) return { name: match[1].replace(/"/g, "").trim(), email: match[2] };
+  return { name: null, email: raw.trim() };
 }

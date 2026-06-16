@@ -149,14 +149,19 @@ model Email {
   needsReply      Boolean?
   generatedReply  String?         @db.Text
   replyMode       String?
+  isSent            Boolean         @default(false)
+  followUpEligibleAt DateTime?
+  followUpCheckedAt  DateTime?
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   emailEmbeddings EmailEmbedding?
+  followUp        FollowUp?
 
   @@index([userId, priority])
   @@index([userId, threadId])
   @@index([userId, timestamp])
   @@index([userId, replyGenerated])
+  @@index([followUpEligibleAt])
   @@map("emails")
 }
 
@@ -167,6 +172,29 @@ model EmailEmbedding {
   email     Email                 @relation(fields: [emailId], references: [id], onDelete: Cascade)
 
   @@map("email_embeddings")
+}
+
+model FollowUp {
+  id              String    @id @default(uuid())
+  userId          String
+  emailId         String          @unique
+  gmailId         String
+  threadId        String
+  subject         String
+  toEmail         String
+  toName          String?
+  sentAt          DateTime
+  status          String    @default("pending")
+  lastCheckedAt   DateTime?
+  replyReceivedAt DateTime?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  email           Email     @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, sentAt])
+  @@map("follow_ups")
 }
 
 model Contact {

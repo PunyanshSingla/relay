@@ -6,8 +6,9 @@ import { triggerSyncJob } from "@/inngest/functions/trigger-sync";
 import { syncCalendarJob } from "@/inngest/functions/sync-calendar";
 import { triggerCalendarSyncJob } from "@/inngest/functions/trigger-calendar-sync";
 import { generateReplyJob } from "@/inngest/functions/generate-reply";
+import { checkFollowUpsJob } from "@/inngest/functions/check-follow-ups";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [syncGmailJob, classifyBatchJob, triggerSyncJob, syncCalendarJob, triggerCalendarSyncJob, generateReplyJob],
+  functions: [syncGmailJob, classifyBatchJob, triggerSyncJob, syncCalendarJob, triggerCalendarSyncJob, generateReplyJob, checkFollowUpsJob],
 });
