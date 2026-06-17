@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
@@ -160,6 +161,8 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [meetingPrep, setMeetingPrep] = useState<string | null>(null);
   const [meetingPrepLoading, setMeetingPrepLoading] = useState(false);
+  const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Mini calendar state
   const [miniYear, setMiniYear] = useState(currentDate.getFullYear());
@@ -280,6 +283,37 @@ export default function CalendarPage() {
     setCreateDialogOpen(false);
     setPrefillDate(null);
     handleRefresh();
+  };
+
+  const handleEditEvent = (event: CalendarEvent) => {
+    setEditEvent(event);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditDialogClose = () => {
+    setEditDialogOpen(false);
+    setEditEvent(null);
+    handleRefresh();
+  };
+
+  const handleDeleteEvent = async (event: CalendarEvent) => {
+    if (!event.id) return;
+    if (!confirm(`Delete "${event.summary || "this event"}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/calendar/events/${event.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+      toast.success("Event deleted");
+      setSelectedEvent(null);
+      handleRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete event");
+    }
   };
 
   const jumpToMonth = (year: number, month: number) => {
@@ -509,6 +543,25 @@ export default function CalendarPage() {
                             </Button>
                           )}
 
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              className="h-6 text-xs"
+                              onClick={() => handleEditEvent(event)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              className="h-6 text-xs text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteEvent(event)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+
                           <Button
                             variant="outline"
                             size="xs"
@@ -549,6 +602,14 @@ export default function CalendarPage() {
         open={createDialogOpen}
         onOpenChange={handleCreateDialogClose}
         prefillDate={prefillDate}
+      />
+
+      {/* Edit event dialog */}
+      <CreateEventDialog
+        open={editDialogOpen}
+        onOpenChange={handleEditDialogClose}
+        editEvent={editEvent}
+        onSaved={handleRefresh}
       />
     </div>
   );
