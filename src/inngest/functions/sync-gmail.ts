@@ -7,7 +7,7 @@ export const syncGmailJob = inngest.createFunction(
   {
     id: "sync-gmail",
     triggers: [{ cron: "*/5 * * * *" }],
-    retries: 1,
+    retries: 3,
   },
   async ({ step }) => {
     const users = await step.run("fetch-users", async () => {
@@ -26,15 +26,23 @@ export const syncGmailJob = inngest.createFunction(
 
       try {
         const canSync = await step.run(`check-active-${tenantId}`, async () => {
-          const state = await prisma.syncState.findUnique({ where: { userId: tenantId } });
-          return !state || (state.phase !== "syncing" && state.phase !== "classifying");
+          const state = await prisma.syncState.findUnique({
+            where: { userId: tenantId },
+          });
+          return (
+            !state ||
+            (state.phase !== "syncing" && state.phase !== "classifying")
+          );
         });
 
         if (!canSync) continue;
 
-        const existingCount = await step.run(`count-emails-${tenantId}`, async () => {
-          return prisma.email.count({ where: { userId: tenantId } });
-        });
+        const existingCount = await step.run(
+          `count-emails-${tenantId}`,
+          async () => {
+            return prisma.email.count({ where: { userId: tenantId } });
+          },
+        );
 
         await step.run(`init-sync-${tenantId}`, async () => {
           await upsertSyncState(tenantId, {
@@ -65,9 +73,40 @@ export const syncGmailJob = inngest.createFunction(
 
         totalSynced += result.syncCount;
 
+        // Mark emails that disappeared from Gmail as TRASH
+        const markedDeleted = await step.run(
+          `mark-deleted-${tenantId}`,
+          async () => {
+            if (result.syncedGmailIds.length === 0) return 0;
+
+            const deactivated = await prisma.email.updateMany({
+              where: {
+                userId: tenantId,
+                gmailId: { notIn: result.syncedGmailIds },
+                isSent: false,
+                NOT: { labels: { has: "TRASH" } },
+              },
+              data: {
+                labels: { push: "TRASH" },
+              },
+            });
+            return deactivated.count;
+          },
+        );
+
+        if (markedDeleted > 0) {
+          console.log(
+            `[sync-gmail] Marked ${markedDeleted} emails as trashed for ${tenantId}`,
+          );
+        }
+
         await step.run(`set-classifying-${tenantId}`, async () => {
-          const totalUnclassified = await prisma.email.count({ where: { userId: tenantId, aiClassified: false } });
-          const totalInDb = await prisma.email.count({ where: { userId: tenantId } });
+          const totalUnclassified = await prisma.email.count({
+            where: { userId: tenantId, aiClassified: false },
+          });
+          const totalInDb = await prisma.email.count({
+            where: { userId: tenantId },
+          });
           await upsertSyncState(tenantId, {
             phase: totalUnclassified > 0 ? "classifying" : "complete",
             syncedEmails: result.syncCount,
@@ -79,11 +118,15 @@ export const syncGmailJob = inngest.createFunction(
           });
         });
 
-        // Only dispatch classify if there are unclassified emails
-        const shouldClassify = await step.run(`check-need-classify-${tenantId}`, async () => {
-          const count = await prisma.email.count({ where: { userId: tenantId, aiClassified: false } });
-          return count > 0;
-        });
+        const shouldClassify = await step.run(
+          `check-need-classify-${tenantId}`,
+          async () => {
+            const count = await prisma.email.count({
+              where: { userId: tenantId, aiClassified: false },
+            });
+            return count > 0;
+          },
+        );
 
         if (shouldClassify) {
           await step.sendEvent(`dispatch-classify-${tenantId}`, {
@@ -95,6 +138,12 @@ export const syncGmailJob = inngest.createFunction(
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[sync-gmail] Failed for tenant ${tenantId}:`, msg);
         errors.push(`${tenantId}: ${msg}`);
+
+        // Write error to SyncState so the UI can display it
+        await upsertSyncState(tenantId, {
+          phase: "idle",
+          lastError: msg,
+        }).catch(() => {});
       }
     }
 

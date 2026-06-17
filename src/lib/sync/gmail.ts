@@ -23,15 +23,13 @@ export async function syncIncrementalEmails(
   userId: string,
   lastSyncTime?: Date,
   maxMessages: number = 500,
-): Promise<{ syncCount: number }> {
+): Promise<{ syncCount: number; syncedGmailIds: string[] }> {
   await ensureCorsairSetup();
 
   const tenant = corsair.withTenant(userId);
 
   let q: string | undefined;
   if (lastSyncTime) {
-    // Subtract 1s for overlap — Gmail's after: is exclusive, so emails
-    // arriving in the same second as the latest synced one could be missed.
     const unixSeconds = Math.floor(lastSyncTime.getTime() / 1000) - 1;
     q = `after:${unixSeconds}`;
   }
@@ -39,6 +37,7 @@ export async function syncIncrementalEmails(
   let syncCount = 0;
   let pageToken: string | undefined;
   let totalFetched = 0;
+  const syncedGmailIds: string[] = [];
 
   do {
     const listResult = await tenant.gmail.api.messages.list({
@@ -59,6 +58,7 @@ export async function syncIncrementalEmails(
           format: "full",
         });
         await upsertEmail(userId, detailed);
+        syncedGmailIds.push(msg.id);
         syncCount++;
         totalFetched++;
       } catch (err) {
@@ -78,7 +78,7 @@ export async function syncIncrementalEmails(
     pageToken = listResult.nextPageToken ?? undefined;
   } while (pageToken);
 
-  return { syncCount };
+  return { syncCount, syncedGmailIds };
 }
 
 export async function upsertEmail(
@@ -86,7 +86,8 @@ export async function upsertEmail(
   msg: Record<string, unknown>,
 ): Promise<void> {
   const payload = msg.payload as Record<string, unknown> | undefined;
-  const headers = (payload?.headers as Array<{ name: string; value: string }>) ?? [];
+  const headers =
+    (payload?.headers as Array<{ name: string; value: string }>) ?? [];
   const getHeader = (name: string) =>
     headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value;
 
@@ -105,16 +106,28 @@ export async function upsertEmail(
   const hasAttachment = payload ? hasAttachments(payload) : false;
   const threadId = (msg.threadId as string) ?? (msg.id as string);
   const gmailId = msg.id as string;
+  const read = !labels.includes("UNREAD");
+  const starred = labels.includes("STARRED");
 
   const existing = await prisma.email.findUnique({ where: { gmailId } });
 
   if (existing) {
+    // Update everything that might have changed in Gmail
     await prisma.email.update({
       where: { gmailId },
       data: {
+        subject,
+        body,
+        bodyHtml,
+        snippet,
         labels,
-        read: existing.read,
-        starred: existing.starred,
+        read,
+        starred,
+        hasAttachment,
+        from,
+        fromName,
+        toText: to,
+        ccText: cc,
       },
     });
     return;
@@ -137,6 +150,8 @@ export async function upsertEmail(
       timestamp,
       labels,
       hasAttachment,
+      read,
+      starred,
     },
   });
 }
@@ -177,7 +192,9 @@ function extractBody(payload: Record<string, unknown> | undefined): string {
   return "";
 }
 
-function extractHtmlBody(payload: Record<string, unknown> | undefined): string | null {
+function extractHtmlBody(
+  payload: Record<string, unknown> | undefined,
+): string | null {
   if (!payload) return null;
 
   const parts = payload.parts as Array<{
@@ -215,7 +232,8 @@ function hasAttachments(payload: Record<string, unknown>): boolean {
       const subParts = (part as Record<string, unknown>).parts as Array<{
         filename?: string;
       }> | undefined;
-      if (subParts?.some((p) => p.filename && p.filename.length > 0)) return true;
+      if (subParts?.some((p) => p.filename && p.filename.length > 0))
+        return true;
     }
     if (part.filename && part.filename.length > 0) return true;
   }
