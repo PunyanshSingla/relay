@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThreadView } from "@/components/inbox/thread-view";
 import { useEmailDetail } from "@/hooks/use-emails";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import type { Email } from "@/types/email";
 
 export default function EmailDetailPage() {
@@ -14,6 +15,27 @@ export default function EmailDetailPage() {
   const emailId = params.id as string;
 
   const { email, loading, error, mutate } = useEmailDetail(emailId);
+
+  // Archive handler for keyboard shortcut
+  const handleArchive = async () => {
+    if (!email) return;
+    try {
+      await fetch(`/api/emails/${email.id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
+      router.push("/dashboard/inbox");
+    } catch {
+      // stay on page on error
+    }
+  };
+
+  // Wire up keyboard shortcuts
+  useKeyboardShortcuts({
+    currentEmailId: emailId,
+    onArchive: handleArchive,
+  });
 
   useEffect(() => {
     if (email && !email.read) {
@@ -50,20 +72,6 @@ export default function EmailDetailPage() {
       });
     } catch {
       mutate();
-    }
-  };
-
-  const handleArchive = async () => {
-    if (!email) return;
-    try {
-      await fetch(`/api/emails/${email.id}/action`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "archive" }),
-      });
-      router.push("/dashboard/inbox");
-    } catch {
-      // stay on page on error
     }
   };
 

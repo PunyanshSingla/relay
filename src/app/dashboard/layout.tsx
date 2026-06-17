@@ -6,6 +6,7 @@ import { TopBar } from "@/components/dashboard/top-bar";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { SyncStatusProvider } from "@/contexts/sync-status-context";
 import { QueryProvider } from "@/providers/query-provider";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,10 @@ export default function DashboardLayout({
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  // Global keyboard shortcuts (C for compose works everywhere)
+  // Thread-specific shortcuts (R, Shift+R, F, E) are handled in the thread view page
+  useKeyboardShortcuts();
 
   return (
     <QueryProvider>
