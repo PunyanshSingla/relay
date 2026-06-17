@@ -39,7 +39,7 @@ export async function PATCH(
     updateData.suppressedUntil = suppressUntil;
   }
 
-  await prisma.automationRule.update({
+  await prisma.workflowPattern.update({
     where: { id },
     data: updateData,
   });

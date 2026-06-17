@@ -50,7 +50,7 @@ export const detectWorkflowPatternsJob = inngest.createFunction(
               if (existing.status === "dismissed" && existing.suppressedUntil && existing.suppressedUntil > new Date()) {
                 return;
               }
-              await prisma.automationRule.update({
+              await prisma.workflowPattern.update({
                 where: { id: existing.id },
                 data: { count, status: "suggested", suppressedUntil: null },
               });

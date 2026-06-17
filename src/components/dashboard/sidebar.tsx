@@ -11,6 +11,7 @@ import {
   Search,
   Sparkles,
   Clock,
+  Zap,
   Command,
   PanelLeftClose,
   PanelLeftOpen,
@@ -70,6 +71,7 @@ function useConnectionStatus() {
 const aiItems: NavItem[] = [
   { label: "Command Center", href: "/dashboard/ai", icon: Sparkles },
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: Clock },
+  { label: "Automations", href: "/dashboard/automations", icon: Zap },
 ];
 
 interface SidebarProps {
