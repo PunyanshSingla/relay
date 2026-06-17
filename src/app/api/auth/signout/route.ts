@@ -26,7 +26,23 @@ export async function POST() {
   // Clean up Corsair account entries so status API reflects reality
   if (tenantId) {
     try {
-      await prisma.corsairAccount.deleteMany({ where: { tenantId } });
+      const accounts = await prisma.corsairAccount.findMany({
+        where: { tenantId },
+        select: { id: true },
+      });
+      const accountIds = accounts.map((a) => a.id);
+
+      if (accountIds.length > 0) {
+        await prisma.corsairEntity.deleteMany({
+          where: { accountId: { in: accountIds } },
+        });
+        await prisma.corsairEvent.deleteMany({
+          where: { accountId: { in: accountIds } },
+        });
+        await prisma.corsairAccount.deleteMany({
+          where: { tenantId },
+        });
+      }
     } catch (err) {
       console.error("[signout] Failed to clean up corsair accounts:", err);
     }

@@ -16,9 +16,10 @@ export async function POST(request: Request) {
   console.log(`[chat] Session: user=${session.user.id}`);
 
   const body = await request.json();
-  const { message, history = [] } = body as {
+  const { message, history = [], mode = "review" } = body as {
     message: string;
     history: Array<{ role: "user" | "assistant"; content: string }>;
+    mode?: "review" | "auto";
   };
 
   if (!message?.trim()) {
@@ -28,8 +29,8 @@ export async function POST(request: Request) {
 
   console.log(`[chat] Message: "${message.slice(0, 100)}..."`);
   console.log(`[chat] History length: ${history.length}`);
+  console.log(`[chat] Mode: ${mode}`);
 
-  // Extract cookies to pass to internal API calls
   const cookieHeader = request.headers.get("cookie") || "";
   console.log(`[chat] Has cookies: ${cookieHeader.length > 0}`);
 
@@ -42,12 +43,15 @@ export async function POST(request: Request) {
           const payload = `data: ${JSON.stringify({ event, data })}\n\n`;
           controller.enqueue(encoder.encode(payload));
         } catch {
-          // Controller already closed — ignore
+          // Controller already closed
         }
       };
 
       const messages: ChatMessage[] = [
-        ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        ...history.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
         { role: "user" as const, content: message },
       ];
 
@@ -57,11 +61,14 @@ export async function POST(request: Request) {
         const toolCalls: ToolCall[] = [];
         let textChunks = 0;
 
-        // Global timeout — force close after 60s
         const globalTimeout = setTimeout(() => {
-          console.warn(`[chat] ⏰ Global timeout reached (60s), forcing stream close`);
-          send("done", { toolCalls: toolCalls.map((tc) => ({ name: tc.name, args: tc.args })) });
-          try { controller.close(); } catch {}
+          console.warn(`[chat] Global timeout reached (60s)`);
+          send("done", {
+            toolCalls: toolCalls.map((tc) => ({ name: tc.name, args: tc.args })),
+          });
+          try {
+            controller.close();
+          } catch {}
         }, 60000);
 
         console.log(`[chat] Starting agent stream...`);
@@ -72,15 +79,23 @@ export async function POST(request: Request) {
           (chunk) => {
             textChunks++;
             if (textChunks <= 3 || textChunks % 10 === 0) {
-              console.log(`[chat] Text chunk #${textChunks}: "${chunk.slice(0, 80)}..."`);
+              console.log(
+                `[chat] Text chunk #${textChunks}: "${chunk.slice(0, 80)}..."`
+              );
             }
             send("text", chunk);
           },
           (tc) => {
             toolCalls.push(tc);
-            console.log(`[chat] Tool call: ${tc.name}`, JSON.stringify(tc.args).slice(0, 200));
+            console.log(
+              `[chat] Tool call: ${tc.name}`,
+              JSON.stringify(tc.args).slice(0, 200)
+            );
             if (tc.result) {
-              console.log(`[chat] Tool result:`, JSON.stringify(tc.result).slice(0, 300));
+              console.log(
+                `[chat] Tool result:`,
+                JSON.stringify(tc.result).slice(0, 300)
+              );
             }
             send("tool_call", {
               name: tc.name,
@@ -88,25 +103,46 @@ export async function POST(request: Request) {
               result: tc.result,
             });
           },
+          (toolName, _delta, partialBody, partialTo, partialSubject) => {
+            send("tool_call_delta", {
+              name: toolName,
+              body: partialBody,
+              to: partialTo,
+              subject: partialSubject,
+            });
+          },
+          mode,
         );
 
         clearTimeout(globalTimeout);
 
-        const totalToolCalls = toolCalls.map((tc) => ({ name: tc.name, args: tc.args }));
-        console.log(`[chat] Agent finished. Total text chunks: ${textChunks}, tool calls: ${toolCalls.length}`);
+        const totalToolCalls = toolCalls.map((tc) => ({
+          name: tc.name,
+          args: tc.args,
+        }));
+        console.log(
+          `[chat] Agent finished. Total text chunks: ${textChunks}, tool calls: ${toolCalls.length}`
+        );
         console.log(`[chat] Tool call summary:`, JSON.stringify(totalToolCalls));
 
         send("done", { toolCalls: totalToolCalls });
       } catch (error) {
         const elapsed = Date.now() - startTime;
-        console.error(`[chat] ❌ Agent error after ${elapsed}ms:`, error);
-        console.error(`[chat] Error stack:`, error instanceof Error ? error.stack : "no stack");
-        send("error", { message: "AI agent encountered an error. Please try again." });
+        console.error(`[chat] Agent error after ${elapsed}ms:`, error);
+        console.error(
+          `[chat] Error stack:`,
+          error instanceof Error ? error.stack : "no stack"
+        );
+        send("error", {
+          message: "AI agent encountered an error. Please try again.",
+        });
       }
 
       try {
         controller.close();
-        console.log(`[chat] Stream closed. Total time: ${Date.now() - startTime}ms`);
+        console.log(
+          `[chat] Stream closed. Total time: ${Date.now() - startTime}ms`
+        );
       } catch (err) {
         console.error(`[chat] Failed to close controller:`, err);
       }

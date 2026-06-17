@@ -63,6 +63,16 @@ export const chatTools = {
     description: "Get a summary of the inbox: total emails, unread count, P1/P2/P3 breakdown. Use when the user asks about their inbox status.",
     parameters: z.object({}),
   },
+
+  send_email: {
+    description: "Send an email directly. Use this when in auto-send mode or when the user explicitly confirms sending.",
+    parameters: z.object({
+      to: z.string().describe("Recipient email address"),
+      subject: z.string().describe("Email subject line"),
+      body: z.string().describe("Email body content in HTML"),
+      threadId: z.string().optional().describe("Thread ID for replies"),
+    }),
+  },
 };
 
 export type ToolName = keyof typeof chatTools;
@@ -205,6 +215,23 @@ export async function executeTool(
     case "get_inbox_summary": {
       const res = await safeFetch(`${baseUrl}/api/emails/counts`);
       return res.json();
+    }
+
+    case "send_email": {
+      const fd = new FormData();
+      fd.set("to", args.to as string);
+      fd.set("subject", args.subject as string);
+      fd.set("bodyHtml", args.body as string);
+      if (args.threadId) fd.set("threadId", args.threadId as string);
+
+      const res = await safeFetch(`${baseUrl}/api/emails/send`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      return res.ok
+        ? { success: true, id: data.id, threadId: data.threadId }
+        : { success: false, error: data.error || "Failed to send email" };
     }
 
     default:
