@@ -4,6 +4,7 @@ import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildMimeMessage, encodeRfc2822 } from "@/lib/gmail-utils";
+import { logAction } from "@/lib/action-logger";
 import crypto from "crypto";
 
 export async function POST(request: Request) {
@@ -136,6 +137,8 @@ export async function POST(request: Request) {
         },
       }).catch(() => {});
     }
+
+    logAction(session.user.id, "send_email", toParsed.email, { subject }).catch(() => {});
 
     return NextResponse.json({
       success: true,

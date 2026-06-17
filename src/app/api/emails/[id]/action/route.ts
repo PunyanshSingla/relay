@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAction } from "@/lib/action-logger";
 
 type Action = "star" | "unstar" | "archive" | "trash" | "read" | "unread";
 
@@ -55,6 +56,16 @@ export async function POST(
         addLabelIds: config.add,
         removeLabelIds: config.remove,
       });
+    }
+
+    const actionTypeMap: Record<string, string> = {
+      star: "star_email",
+      unstar: "star_email",
+      archive: "archive_email",
+      trash: "trash_email",
+    };
+    if (actionTypeMap[action]) {
+      logAction(session.user.id, actionTypeMap[action] as "star_email" | "archive_email" | "trash_email", gmailId).catch(() => {});
     }
 
     return NextResponse.json({ ok: true });
