@@ -174,12 +174,20 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
         {email.bodyHtml ? (
           <iframe
             ref={iframeRef}
-            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1a1a1a;}img{max-width:100%;height:auto;}a{color:#0066cc;text-decoration:underline;}table{border-collapse:separate;}td,th{padding:4px 8px;}blockquote{border-left:3px solid #ddd;padding-left:12px;margin:0 0 0 0;color:#555;}</style></head><body>${DOMPurify.sanitize(email.bodyHtml, { ADD_TAGS: ["style"], ADD_ATTR: ["target", "style"] })}</body></html>`}
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light dark;}body{margin:0;padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1a1a1a;background:white;}a{color:#0066cc;text-decoration:underline;}table{border-collapse:separate;}td,th{padding:4px 8px;}blockquote{border-left:3px solid #ddd;padding-left:12px;margin:0 0 0 0;color:#555;}@media(prefers-color-scheme:dark){body{color:#e5e5e5;background:#1a1a1a;}a{color:#60a5fa;}blockquote{border-left-color:#444;color:#999;}img{opacity:0.9;}}</style></head><body>${DOMPurify.sanitize(email.bodyHtml, { ADD_TAGS: ["style"], ADD_ATTR: ["target", "style"] })}</body></html>`}
             sandbox="allow-same-origin"
-            className="w-full border-0 bg-white"
+            className="w-full border-0 bg-background"
             style={{ minHeight: "200px" }}
             onLoad={handleIframeLoad}
           />
+        ) : email.body?.trim() ? (
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+            {email.body}
+          </div>
+        ) : email.preview ? (
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground italic">
+            {email.preview}
+          </div>
         ) : (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <p className="text-sm">No preview available</p>

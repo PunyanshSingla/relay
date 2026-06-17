@@ -93,19 +93,13 @@ export function usePriorityEmailList(
       ...p3Emails,
     ];
 
-    const totalCount =
-      (p1Data?.counts?.total ?? 0) +
-      (p2Data?.counts?.total ?? 0) +
-      (p3Data?.counts?.total ?? 0);
-    const unreadCount =
-      (p1Data?.counts?.unread ?? 0) +
-      (p2Data?.counts?.unread ?? 0) +
-      (p3Data?.counts?.unread ?? 0);
+    // Use P1's counts as the source of truth (they're global counts, not per-filter)
+    const p1Counts = p1Data?.counts;
 
     return {
       emails,
-      counts: p1Data?.counts
-        ? { total: totalCount, unread: unreadCount, P1: p1Data.counts.P1, P2: p2Data?.counts?.P2 ?? 0, P3: p3Data?.counts?.P3 ?? 0 }
+      counts: p1Counts
+        ? { total: p1Counts.total, unread: p1Counts.unread, P1: p1Counts.P1, P2: p1Counts.P2, P3: p1Counts.P3 }
         : null,
       loading: !p1Data && !p2Data && !p3Data,
       loadingGroups: {
