@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { inngest } from "@/lib/inngest";
+import { logAction } from "@/lib/action-logger";
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -54,6 +55,8 @@ export async function POST(request: Request) {
     name: "email/generate-reply",
     data: { userId: session.user.id, emailId, mode: mode ?? "professional" },
   });
+
+  logAction(session.user.id, "ai_reply", emailId, { mode: mode ?? "professional" }).catch(() => {});
 
   return NextResponse.json({ status: "generating" });
 }

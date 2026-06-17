@@ -13,11 +13,15 @@ import {
   Mail,
   AlertTriangle,
   RefreshCw,
+  Bot,
+  Check,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/format-date";
+import { ACTION_LABELS, type ActionType } from "@/types/automation";
 
 interface Brief {
   summary: string;
@@ -46,6 +50,14 @@ interface RecentEmail {
   priority: string;
 }
 
+interface Automation {
+  id: string;
+  actionType: ActionType;
+  target: string;
+  description: string;
+  count: number;
+}
+
 export default function DashboardPage() {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [briefLoading, setBriefLoading] = useState(true);
@@ -61,6 +73,7 @@ export default function DashboardPage() {
   }>>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [followUpCount, setFollowUpCount] = useState(0);
+  const [automations, setAutomations] = useState<Automation[]>([]);
 
   useEffect(() => {
     fetch("/api/brief")
@@ -97,6 +110,11 @@ export default function DashboardPage() {
       .then((r) => r.json())
       .then((data) => setFollowUpCount(data.counts?.pending ?? 0))
       .catch(() => {});
+
+    fetch("/api/automations")
+      .then((r) => r.json())
+      .then((data) => setAutomations(data.automations ?? []))
+      .catch(() => {});
   }, []);
 
   const statusColors: Record<string, string> = {
@@ -108,7 +126,7 @@ export default function DashboardPage() {
   const quickActions = [
     {
       title: "Inbox",
-      description: counts ? `${counts.unread} unread` : "Loading...",
+      description: counts ? (counts.unread > 0 ? `${counts.unread} unread` : "All caught up") : "View emails",
       icon: Inbox,
       href: "/dashboard/inbox",
       color: "text-blue-500",
@@ -116,7 +134,7 @@ export default function DashboardPage() {
     },
     {
       title: "Calendar",
-      description: `${upcomingEvents.length} events today`,
+      description: upcomingEvents.length > 0 ? `${upcomingEvents.length} events today` : "No events today",
       icon: Calendar,
       href: "/dashboard/calendar",
       color: "text-emerald-500",
@@ -139,6 +157,28 @@ export default function DashboardPage() {
       bgColor: "bg-purple-500/10",
     },
   ];
+
+  const handleAcceptAutomation = async (id: string) => {
+    setAutomations((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await fetch(`/api/automations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "accepted" }),
+      });
+    } catch {}
+  };
+
+  const handleDismissAutomation = async (id: string) => {
+    setAutomations((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await fetch(`/api/automations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "dismissed" }),
+      });
+    } catch {}
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -187,8 +227,8 @@ export default function DashboardPage() {
         <Card className="border-border border-dashed">
           <CardContent className="py-6 flex flex-col items-center justify-center text-muted-foreground">
             <Sun className="size-6 mb-2" />
-            <p className="text-sm">No brief generated yet.</p>
-            <p className="text-xs mt-1">Briefs are generated daily at 7:30 AM.</p>
+            <p className="text-sm">No brief for today yet.</p>
+            <p className="text-xs mt-1">Your morning brief will appear here daily at 7:30 AM.</p>
           </CardContent>
         </Card>
       )}
@@ -236,6 +276,9 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <Inbox className="size-10 text-muted-foreground/30 mb-2" />
                 <p className="text-sm text-muted-foreground">No unread emails</p>
+                <Link href="/dashboard/inbox" className="text-xs text-primary mt-1 hover:underline">
+                  Open inbox
+                </Link>
               </div>
             ) : (
               <div className="space-y-3">
@@ -327,6 +370,54 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Workflow Suggestions */}
+      {automations.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg">
+              <span className="flex items-center gap-2">
+                <Bot className="size-5 text-primary" />
+                Workflow Suggestions
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {automations.map((auto) => (
+                <div key={auto.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm">{auto.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {ACTION_LABELS[auto.actionType] ?? auto.actionType} · {auto.count} times
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-green-600"
+                      onClick={() => handleAcceptAutomation(auto.id)}
+                    >
+                      <Check className="size-3 mr-1" />
+                      Accept
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-muted-foreground"
+                      onClick={() => handleDismissAutomation(auto.id)}
+                    >
+                      <X className="size-3 mr-1" />
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* AI Quick Actions */}
       <Card>

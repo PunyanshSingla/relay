@@ -4,16 +4,17 @@ import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
 import { gmailCacheInvalidate } from "@/lib/gmail-cache";
 import { prisma } from "@/lib/prisma";
+import { logAction } from "@/lib/action-logger";
 
 type Action = "star" | "unstar" | "archive" | "trash" | "read" | "unread";
 
 const ACTIONS: Record<Action, { add?: string[]; remove?: string[]; trash?: boolean }> = {
-  star:    { add: ["STARRED"] },
-  unstar:  { remove: ["STARRED"] },
+  star: { add: ["STARRED"] },
+  unstar: { remove: ["STARRED"] },
   archive: { remove: ["INBOX"] },
-  trash:   { add: ["TRASH"] },
-  read:    { remove: ["UNREAD"] },
-  unread:  { add: ["UNREAD"] },
+  trash: { add: ["TRASH"] },
+  read: { remove: ["UNREAD"] },
+  unread: { add: ["UNREAD"] },
 };
 
 export async function POST(
@@ -57,15 +58,23 @@ export async function POST(
         removeLabelIds: config.remove,
       });
     }
-
+    const actionTypeMap: Record<string, string> = {
+      star: "star_email",
+      unstar: "star_email",
+      archive: "archive_email",
+      trash: "trash_email",
+    };
     if (action === "archive" || action === "trash") {
       gmailCacheInvalidate(session.user.id, id);
     }
+      if (actionTypeMap[action]) {
+        logAction(session.user.id, actionTypeMap[action] as "star_email" | "archive_email" | "trash_email", gmailId).catch(() => { });
+      }
 
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error(`Failed to ${action} email:`, error);
-    const message = error instanceof Error ? error.message : `Failed to ${action} email`;
-    return NextResponse.json({ error: message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    } catch (error) {
+      console.error(`Failed to ${action} email:`, error);
+      const message = error instanceof Error ? error.message : `Failed to ${action} email`;
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
-}

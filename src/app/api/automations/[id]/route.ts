@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { logAction } from "@/lib/action-logger";
 
 export async function PATCH(
   request: Request,
@@ -17,30 +16,33 @@ export async function PATCH(
   const body = await request.json().catch(() => null);
   const status = body?.status as string | undefined;
 
-  if (!status || !["dismissed", "acted_upon"].includes(status)) {
+  if (!status || !["accepted", "dismissed"].includes(status)) {
     return NextResponse.json(
-      { error: "Invalid status. Must be: dismissed, acted_upon" },
+      { error: "Invalid status. Must be: accepted, dismissed" },
       { status: 400 }
     );
   }
 
-  const followUp = await prisma.followUp.findUnique({
+  const rule = await prisma.automationRule.findUnique({
     where: { id },
     select: { userId: true },
   });
 
-  if (!followUp || followUp.userId !== session.user.id) {
-    return NextResponse.json({ error: "Follow-up not found" }, { status: 404 });
+  if (!rule || rule.userId !== session.user.id) {
+    return NextResponse.json({ error: "Automation not found" }, { status: 404 });
   }
 
-  await prisma.followUp.update({
-    where: { id },
-    data: { status },
-  });
-
+  const updateData: Record<string, unknown> = { status };
   if (status === "dismissed") {
-    logAction(session.user.id, "dismiss_followup", id).catch(() => {});
+    const suppressUntil = new Date();
+    suppressUntil.setDate(suppressUntil.getDate() + 30);
+    updateData.suppressedUntil = suppressUntil;
   }
+
+  await prisma.automationRule.update({
+    where: { id },
+    data: updateData,
+  });
 
   return NextResponse.json({ ok: true });
 }

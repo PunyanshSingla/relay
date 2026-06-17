@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { corsair, ensureCorsairSetup } from "@/lib/corsair";
 import { inngest } from "@/lib/inngest";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/connect/callback`;
 
@@ -70,7 +72,13 @@ export async function GET(request: NextRequest) {
       redirectUri: REDIRECT_URI,
     });
 
-    const tenantId = parseStateTenantId(state);
+    let tenantId: string | null = null;
+    try {
+      const session = await auth.api.getSession({ headers: await headers() });
+      tenantId = session?.user?.id ?? parseStateTenantId(state);
+    } catch {
+      tenantId = parseStateTenantId(state);
+    }
 
     if (isCalendarFlow) {
       const response = NextResponse.redirect(

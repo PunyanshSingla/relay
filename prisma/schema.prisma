@@ -252,3 +252,33 @@ model DailyBrief {
   @@index([userId, date])
   @@map("daily_briefs")
 }
+
+model UserAction {
+  id         String   @id @default(uuid())
+  userId     String
+  actionType String
+  target     String
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, actionType])
+  @@index([userId, actionType, target])
+  @@map("user_actions")
+}
+
+model AutomationRule {
+  id              String    @id @default(uuid())
+  userId          String
+  actionType      String
+  target          String
+  description     String
+  count           Int       @default(0)
+  status          String    @default("suggested")
+  suppressedUntil DateTime?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([userId, actionType, target])
+  @@index([userId, status])
+  @@map("automation_rules")
+}

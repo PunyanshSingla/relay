@@ -21,9 +21,14 @@ export async function GET(request: Request) {
     briefDate.setHours(0, 0, 0, 0);
   }
 
-  const brief = await prisma.dailyBrief.findUnique({
-    where: { userId_date: { userId: session.user.id, date: briefDate } },
-  });
+  let brief;
+  try {
+    brief = await prisma.dailyBrief.findUnique({
+      where: { userId_date: { userId: session.user.id, date: briefDate } },
+    });
+  } catch {
+    return NextResponse.json({ brief: null });
+  }
 
   if (!brief) {
     return NextResponse.json({ brief: null });
