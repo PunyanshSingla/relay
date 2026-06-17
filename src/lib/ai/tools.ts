@@ -15,20 +15,20 @@ export const chatTools = {
     }),
   },
 
-  send_email: {
-    description: "Send an email to someone. Use when the user wants to send a new email.",
+  draft_email: {
+    description: "Draft an email for the user to review before sending. ALWAYS use this instead of sending directly. The user will review and confirm.",
     parameters: z.object({
       to: z.string().describe("Recipient email address"),
       subject: z.string().describe("Email subject line"),
-      body: z.string().describe("Email body content"),
+      body: z.string().describe("Email body content in HTML"),
     }),
   },
 
-  reply_to_email: {
-    description: "Reply to an existing email thread.",
+  draft_reply: {
+    description: "Draft a reply to an existing email for the user to review before sending. ALWAYS use this instead of replying directly.",
     parameters: z.object({
       emailId: z.string().describe("The email ID to reply to"),
-      body: z.string().describe("Reply body content"),
+      body: z.string().describe("Reply body content in HTML"),
     }),
   },
 
@@ -73,19 +73,40 @@ export interface ToolCall {
   result?: unknown;
 }
 
+export interface DraftResult {
+  draft: true;
+  type: "email" | "reply";
+  to: string;
+  subject: string;
+  body: string;
+  threadId?: string;
+  replyToId?: string;
+}
+
 export async function executeTool(
   name: ToolName,
   args: Record<string, unknown>,
   userId: string,
   fetchFn: typeof fetch,
+  cookieHeader?: string,
 ): Promise<unknown> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const signal = AbortSignal.timeout(12000);
+
+  const safeFetch = (url: string, init?: RequestInit) =>
+    fetchFn(url, {
+      ...init,
+      signal,
+      headers: {
+        ...init?.headers,
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      },
+    });
 
   switch (name) {
     case "search_emails": {
-      const res = await fetchFn(
+      const res = await safeFetch(
         `${baseUrl}/api/search?q=${encodeURIComponent(args.query as string)}`,
-        { headers: { Cookie: `better-auth.session_token=${args._sessionToken}` } },
       );
       const data = await res.json();
       return data.emails?.slice(0, 5).map((e: { id: string; subject: string; from: { name: string; email: string }; preview: string; timestamp: string }) => ({
@@ -97,10 +118,7 @@ export async function executeTool(
     }
 
     case "read_email": {
-      const res = await fetchFn(
-        `${baseUrl}/api/emails/${args.emailId}`,
-        { headers: { Cookie: `better-auth.session_token=${args._sessionToken}` } },
-      );
+      const res = await safeFetch(`${baseUrl}/api/emails/${args.emailId}`);
       const data = await res.json();
       const e = data.email;
       return e ? {
@@ -112,54 +130,41 @@ export async function executeTool(
       } : null;
     }
 
-    case "send_email": {
-      const res = await fetchFn(`${baseUrl}/api/emails/send`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `better-auth.session_token=${args._sessionToken}`,
-        },
-        body: JSON.stringify({
-          to: args.to,
-          subject: args.subject,
-          htmlBody: args.body,
-        }),
-      });
-      return res.ok ? { success: true } : { success: false, error: "Failed to send" };
+    case "draft_email": {
+      // Return draft for user to review — don't send yet
+      const result: DraftResult = {
+        draft: true,
+        type: "email",
+        to: args.to as string,
+        subject: args.subject as string,
+        body: args.body as string,
+      };
+      return result;
     }
 
-    case "reply_to_email": {
-      const emailRes = await fetchFn(
-        `${baseUrl}/api/emails/${args.emailId}`,
-        { headers: { Cookie: `better-auth.session_token=${args._sessionToken}` } },
-      );
+    case "draft_reply": {
+      // Fetch original email for context, return draft
+      const emailRes = await safeFetch(`${baseUrl}/api/emails/${args.emailId}`);
       const emailData = await emailRes.json();
       const email = emailData.email;
-      if (!email) return { success: false, error: "Email not found" };
+      if (!email) return { error: "Email not found" };
 
-      const res = await fetchFn(`${baseUrl}/api/emails/send`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `better-auth.session_token=${args._sessionToken}`,
-        },
-        body: JSON.stringify({
-          to: email.from.email,
-          subject: email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`,
-          htmlBody: args.body,
-          threadId: email.threadId,
-        }),
-      });
-      return res.ok ? { success: true } : { success: false, error: "Failed to reply" };
+      const result: DraftResult = {
+        draft: true,
+        type: "reply",
+        to: email.from.email,
+        subject: email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`,
+        body: args.body as string,
+        threadId: email.threadId,
+        replyToId: email.id,
+      };
+      return result;
     }
 
     case "create_event": {
-      const res = await fetchFn(`${baseUrl}/api/calendar/events`, {
+      const res = await safeFetch(`${baseUrl}/api/calendar/events`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `better-auth.session_token=${args._sessionToken}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           summary: args.summary,
           startDateTime: args.startDateTime,
@@ -175,10 +180,7 @@ export async function executeTool(
       const params = new URLSearchParams();
       if (args.timeMin) params.set("timeMin", args.timeMin as string);
       if (args.timeMax) params.set("timeMax", args.timeMax as string);
-      const res = await fetchFn(
-        `${baseUrl}/api/calendar/events?${params.toString()}`,
-        { headers: { Cookie: `better-auth.session_token=${args._sessionToken}` } },
-      );
+      const res = await safeFetch(`${baseUrl}/api/calendar/events?${params.toString()}`);
       const data = await res.json();
       let events = data.events ?? [];
       if (args.query) {
@@ -188,31 +190,20 @@ export async function executeTool(
         );
       }
       return events.slice(0, 5).map((ev: { id: string; summary: string; start: string; end: string }) => ({
-        id: ev.id,
-        summary: ev.summary,
-        start: ev.start,
-        end: ev.end,
+        id: ev.id, summary: ev.summary, start: ev.start, end: ev.end,
       }));
     }
 
     case "list_contacts": {
-      const res = await fetchFn(
-        `${baseUrl}/api/contacts?q=${encodeURIComponent(args.query as string)}`,
-        { headers: { Cookie: `better-auth.session_token=${args._sessionToken}` } },
-      );
+      const res = await safeFetch(`${baseUrl}/api/contacts?q=${encodeURIComponent(args.query as string)}`);
       const data = await res.json();
       return (data.contacts ?? []).slice(0, 5).map((c: { id: string; name: string; email: string }) => ({
-        id: c.id,
-        name: c.name,
-        email: c.email,
+        id: c.id, name: c.name, email: c.email,
       }));
     }
 
     case "get_inbox_summary": {
-      const res = await fetchFn(
-        `${baseUrl}/api/emails/counts`,
-        { headers: { Cookie: `better-auth.session_token=${args._sessionToken}` } },
-      );
+      const res = await safeFetch(`${baseUrl}/api/emails/counts`);
       return res.json();
     }
 
