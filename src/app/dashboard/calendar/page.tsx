@@ -12,6 +12,8 @@ import {
   ExternalLink,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
+  Loader2 as Loader2Icon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -155,6 +157,9 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [prefillDate, setPrefillDate] = useState<Date | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [meetingPrep, setMeetingPrep] = useState<string | null>(null);
+  const [meetingPrepLoading, setMeetingPrepLoading] = useState(false);
 
   // Mini calendar state
   const [miniYear, setMiniYear] = useState(currentDate.getFullYear());
@@ -210,8 +215,44 @@ export default function CalendarPage() {
   const handleDayClick = (date: Date) => {
     if (selectedDate && isSameDay(date, selectedDate)) {
       setSelectedDate(null);
+      setSelectedEvent(null);
+      setMeetingPrep(null);
     } else {
       setSelectedDate(date);
+      setSelectedEvent(null);
+      setMeetingPrep(null);
+    }
+  };
+
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setMeetingPrep(null);
+  };
+
+  const handleGeneratePrep = async () => {
+    if (!selectedEvent) return;
+    setMeetingPrepLoading(true);
+    setMeetingPrep(null);
+    try {
+      const res = await fetch(`/api/calendar/events/${selectedEvent.id}/prep`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: selectedEvent.summary,
+          description: selectedEvent.description,
+          attendees: (selectedEvent.attendees ?? []).map((a) => ({
+            email: a.email ?? "",
+            name: a.displayName,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setMeetingPrep(data.prep);
+    } catch {
+      setMeetingPrep("Failed to generate meeting prep. Please try again.");
+    } finally {
+      setMeetingPrepLoading(false);
     }
   };
 
@@ -455,6 +496,31 @@ export default function CalendarPage() {
                                 Open in Google Calendar
                               </a>
                             </Button>
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            className="h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEventClick(event);
+                              handleGeneratePrep();
+                            }}
+                            disabled={meetingPrepLoading && selectedEvent?.id === event.id}
+                          >
+                            {meetingPrepLoading && selectedEvent?.id === event.id ? (
+                              <Loader2Icon className="size-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="size-3" />
+                            )}
+                            {meetingPrepLoading && selectedEvent?.id === event.id ? "Generating..." : "Meeting Prep"}
+                          </Button>
+
+                          {selectedEvent?.id === event.id && meetingPrep && (
+                            <div className="rounded-lg bg-muted/50 p-3 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                              {meetingPrep}
+                            </div>
                           )}
                         </div>
                       </div>

@@ -46,6 +46,42 @@ Return a JSON object with exactly these fields:
   return prompt;
 }
 
+// ──────────────────────────────────────────────
+// Meeting prep prompts
+// ──────────────────────────────────────────────
+
+export interface MeetingPrepData {
+  summary: string;
+  description?: string;
+  attendees: string;
+  recentEmails: string;
+  pendingFollowUps: string;
+}
+
+export function buildMeetingPrepPrompt(data: MeetingPrepData): string {
+  return `You are an AI meeting prep assistant. Generate a concise meeting brief.
+
+MEETING: ${data.summary}
+${data.description ? `DESCRIPTION: ${data.description}` : ""}
+ATTENDEES: ${data.attendees}
+
+RECENT EMAILS WITH ATTENDEES (last 30 days):
+${data.recentEmails}
+
+PENDING FOLLOW-UPS WITH ATTENDEES:
+${data.pendingFollowUps}
+
+Generate a meeting prep brief. Rules:
+- Start with a 1-line meeting context summary
+- Include 3-5 suggested talking points based on recent email context
+- Mention any open items or follow-ups that need discussion
+- Reference specific email topics when relevant
+- Keep it under 200 words
+- Use bullet points for talking points
+- Be concise and actionable
+- Do NOT use markdown headers, just plain text`;
+}
+
 export function buildBatchClassifyPrompt(
   emails: BatchEmailInput[],
 ): string {
