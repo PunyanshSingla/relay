@@ -153,7 +153,7 @@ export default function CalendarPage() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<"month" | "week">("month");
+  const [view, setView] = useState<"month" | "week" | "day">("month");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [prefillDate, setPrefillDate] = useState<Date | null>(null);
@@ -174,10 +174,15 @@ export default function CalendarPage() {
 
       if (view === "month") {
         rangeStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        rangeStart.setDate(1 - rangeStart.getDay()); // include padding from prev month
+        rangeStart.setDate(1 - rangeStart.getDay());
         rangeEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
         const endPad = 6 - rangeEnd.getDay();
-        rangeEnd.setDate(rangeEnd.getDate() + endPad + 1); // include padding +1 for exclusive end
+        rangeEnd.setDate(rangeEnd.getDate() + endPad + 1);
+      } else if (view === "day") {
+        rangeStart = new Date(currentDate);
+        rangeStart.setHours(0, 0, 0, 0);
+        rangeEnd = new Date(currentDate);
+        rangeEnd.setHours(23, 59, 59, 999);
       } else {
         rangeStart = new Date(currentDate);
         rangeStart.setDate(rangeStart.getDate() - rangeStart.getDay());
@@ -193,7 +198,12 @@ export default function CalendarPage() {
 
       const res = await fetch(`/api/calendar/events?${params}`);
       const data = await res.json();
-      if (data.events) setEvents(data.events);
+      if (!res.ok) {
+        console.error("[calendar] API error:", data.error);
+        setEvents([]);
+      } else if (data.events) {
+        setEvents(data.events);
+      }
     } catch (err) {
       console.error("Failed to load events:", err);
     } finally {
@@ -412,6 +422,7 @@ export default function CalendarPage() {
                 onDayDoubleClick={handleDayDoubleClick}
                 view={view}
                 onViewChange={setView}
+                onEventClick={handleEventClick}
               />
             </Card>
           </div>

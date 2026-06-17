@@ -8,6 +8,7 @@ export const syncGmailJob = inngest.createFunction(
     id: "sync-gmail",
     triggers: [{ cron: "*/5 * * * *" }],
     retries: 3,
+    timeout: "3m",
   },
   async ({ step }) => {
     const users = await step.run("fetch-users", async () => {
@@ -73,33 +74,6 @@ export const syncGmailJob = inngest.createFunction(
 
         totalSynced += result.syncCount;
 
-        // Mark emails that disappeared from Gmail as TRASH
-        const markedDeleted = await step.run(
-          `mark-deleted-${tenantId}`,
-          async () => {
-            if (result.syncedGmailIds.length === 0) return 0;
-
-            const deactivated = await prisma.email.updateMany({
-              where: {
-                userId: tenantId,
-                gmailId: { notIn: result.syncedGmailIds },
-                isSent: false,
-                NOT: { labels: { has: "TRASH" } },
-              },
-              data: {
-                labels: { push: "TRASH" },
-              },
-            });
-            return deactivated.count;
-          },
-        );
-
-        if (markedDeleted > 0) {
-          console.log(
-            `[sync-gmail] Marked ${markedDeleted} emails as trashed for ${tenantId}`,
-          );
-        }
-
         await step.run(`set-classifying-${tenantId}`, async () => {
           const totalUnclassified = await prisma.email.count({
             where: { userId: tenantId, aiClassified: false },
@@ -139,7 +113,6 @@ export const syncGmailJob = inngest.createFunction(
         console.error(`[sync-gmail] Failed for tenant ${tenantId}:`, msg);
         errors.push(`${tenantId}: ${msg}`);
 
-        // Write error to SyncState so the UI can display it
         await upsertSyncState(tenantId, {
           phase: "idle",
           lastError: msg,

@@ -24,7 +24,10 @@ export function UserMenu() {
   const { data: session } = authClient.useSession();
 
   const handleSignOut = async () => {
-    await fetch("/api/auth/signout", { method: "POST" });
+    // Clear client-side session first
+    await authClient.signOut();
+    // Server-side cleanup (corsair accounts, cookies)
+    await fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
     router.push("/login");
   };
 

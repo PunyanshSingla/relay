@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { upsertSyncState } from "@/lib/sync-status";
 import crypto from "crypto";
 
+const GMAIL_LIST_TIMEOUT = 30_000;
+const GMAIL_GET_TIMEOUT = 15_000;
+
 export interface RawEmail {
   gmailId: string;
   threadId: string;
@@ -22,8 +25,8 @@ export interface RawEmail {
 export async function syncIncrementalEmails(
   userId: string,
   lastSyncTime?: Date,
-  maxMessages: number = 500,
-): Promise<{ syncCount: number; syncedGmailIds: string[] }> {
+  maxMessages: number = 200,
+): Promise<{ syncCount: number }> {
   await ensureCorsairSetup();
 
   const tenant = corsair.withTenant(userId);
@@ -37,28 +40,32 @@ export async function syncIncrementalEmails(
   let syncCount = 0;
   let pageToken: string | undefined;
   let totalFetched = 0;
-  const syncedGmailIds: string[] = [];
 
   do {
-    const listResult = await tenant.gmail.api.messages.list({
-      maxResults: 50,
-      pageToken,
-      q,
-    });
+    const listResult = await Promise.race([
+      tenant.gmail.api.messages.list({
+        maxResults: 50,
+        pageToken,
+        q,
+      }),
+      timeout(GMAIL_LIST_TIMEOUT, "messages.list"),
+    ]);
 
-    const messages = listResult.messages ?? [];
+    const messages = (listResult as { messages?: Array<{ id?: string }> }).messages ?? [];
     if (messages.length === 0) break;
 
     for (const msg of messages) {
       if (totalFetched >= maxMessages) break;
       if (!msg.id) continue;
       try {
-        const detailed = await tenant.gmail.api.messages.get({
-          id: msg.id,
-          format: "full",
-        });
-        await upsertEmail(userId, detailed);
-        syncedGmailIds.push(msg.id);
+        const detailed = await Promise.race([
+          tenant.gmail.api.messages.get({
+            id: msg.id,
+            format: "metadata",
+          }),
+          timeout(GMAIL_GET_TIMEOUT, "messages.get"),
+        ]);
+        await upsertEmail(userId, detailed as Record<string, unknown>);
         syncCount++;
         totalFetched++;
       } catch (err) {
@@ -66,19 +73,24 @@ export async function syncIncrementalEmails(
       }
     }
 
+    // Update progress every page
     const totalInDb = await prisma.email.count({ where: { userId } });
     await upsertSyncState(userId, {
       syncedEmails: syncCount,
       totalEmails: totalInDb,
-    }).catch((err) => {
-      console.error("[sync] Failed to update sync progress:", err);
-    });
+    }).catch(() => {});
 
     if (totalFetched >= maxMessages) break;
-    pageToken = listResult.nextPageToken ?? undefined;
+    pageToken = (listResult as { nextPageToken?: string }).nextPageToken ?? undefined;
   } while (pageToken);
 
-  return { syncCount, syncedGmailIds };
+  return { syncCount };
+}
+
+function timeout(ms: number, label: string): Promise<never> {
+  return new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Gmail API timeout: ${label} (${ms}ms)`)), ms)
+  );
 }
 
 export async function upsertEmail(
@@ -112,7 +124,6 @@ export async function upsertEmail(
   const existing = await prisma.email.findUnique({ where: { gmailId } });
 
   if (existing) {
-    // Update everything that might have changed in Gmail
     await prisma.email.update({
       where: { gmailId },
       data: {

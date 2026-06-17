@@ -3,11 +3,14 @@ import { syncIncrementalEmails } from "@/lib/sync/gmail";
 import { prisma } from "@/lib/prisma";
 import { upsertSyncState } from "@/lib/sync-status";
 
+const INITIAL_SYNC_LIMIT = 100;
+
 export const triggerSyncJob = inngest.createFunction(
   {
     id: "trigger-sync",
     triggers: [{ event: "email/trigger-sync" }],
     retries: 2,
+    timeout: "5m",
   },
   async ({ event, step }) => {
     const { userId } = event.data as { userId: string };
@@ -30,24 +33,7 @@ export const triggerSyncJob = inngest.createFunction(
       });
 
       const result = await step.run("sync-emails", async () => {
-        return syncIncrementalEmails(userId, undefined, 500);
-      });
-
-      // Mark emails that disappeared from Gmail as TRASH
-      await step.run("mark-deleted", async () => {
-        if (result.syncedGmailIds.length === 0) return;
-
-        await prisma.email.updateMany({
-          where: {
-            userId,
-            gmailId: { notIn: result.syncedGmailIds },
-            isSent: false,
-            NOT: { labels: { has: "TRASH" } },
-          },
-          data: {
-            labels: { push: "TRASH" },
-          },
-        });
+        return syncIncrementalEmails(userId, undefined, INITIAL_SYNC_LIMIT);
       });
 
       await step.run("set-classifying-phase", async () => {

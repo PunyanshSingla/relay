@@ -19,8 +19,10 @@ export const classifyBatchJob = inngest.createFunction(
 
     // Step 0: Set accurate totalToClassify from DB
     await step.run("update-total-to-classify", async () => {
-      const totalCount = await prisma.email.count({ where: { userId } });
-      await upsertSyncState(userId, { totalToClassify: totalCount });
+      const unclassifiedCount = await prisma.email.count({
+        where: { userId, aiClassified: false },
+      });
+      await upsertSyncState(userId, { totalToClassify: unclassifiedCount });
     });
 
     // Step 1: Fetch unclassified emails (newest first)
