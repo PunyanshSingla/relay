@@ -42,14 +42,7 @@ export function usePriorityEmailList(
   const isPriorityMode = filter === "all";
 
   // ── Priority mode: fetch P1, P2, P3 separately ──
-  const p1Key = isPriorityMode
-    ? buildKey("P1", sender)
-    : filter === "unread"
-      ? buildKey("unread", sender)
-      : filter === "P1" || filter === "P2" || filter === "P3"
-        ? buildKey(filter, sender)
-        : null;
-
+  const p1Key = isPriorityMode ? buildKey("P1", sender) : null;
   const p2Key = isPriorityMode ? buildKey("P2", sender) : null;
   const p3Key = isPriorityMode ? buildKey("P3", sender) : null;
 
@@ -69,8 +62,8 @@ export function usePriorityEmailList(
     { revalidateOnFocus: false, revalidateOnReconnect: false }
   );
 
-  // ── Non-priority mode: single query (unread, specific priority, etc.) ──
-  const singleKey = !isPriorityMode ? p1Key : null;
+  // ── Non-priority mode: single query (unread, starred, trash, sent, spam, specific priority, etc.) ──
+  const singleKey = !isPriorityMode ? buildKey(filter, sender) : null;
   const { data: singleData, isValidating: singleValidating } = useSWR<EmailsApiResponse>(
     singleKey,
     fetcher,

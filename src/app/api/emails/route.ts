@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     } else if (filter === "spam") {
       where.labels = { has: "SPAM" };
     } else if (filter === "sent") {
-      where.isSent = true;
+      where.OR = [{ isSent: true }, { labels: { has: "SENT" } }];
     } else if (filter === "starred") {
       where.starred = true;
     } else if (filter === "all") {

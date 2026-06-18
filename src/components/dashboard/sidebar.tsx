@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   Inbox,
@@ -138,6 +138,7 @@ function NavLink({
 
 export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const unreadCount = useUnreadCount();
   const labels = useLabels();
   const connectionStatus = useConnectionStatus();
@@ -183,7 +184,9 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const itemUrl = new URL(item.href, "http://localhost");
+            const currentUrl = new URL(pathname + (searchParams.toString() ? `?${searchParams.toString()}` : ""), "http://localhost");
+            const isActive = currentUrl.pathname === itemUrl.pathname && itemUrl.searchParams.toString() === currentUrl.searchParams.toString();
             return (
               <NavLink
                 key={item.href}
