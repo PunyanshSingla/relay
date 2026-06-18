@@ -266,7 +266,7 @@ model UserAction {
   @@map("user_actions")
 }
 
-model AutomationRule {
+model WorkflowPattern {
   id              String    @id @default(uuid())
   userId          String
   actionType      String
@@ -280,5 +280,37 @@ model AutomationRule {
 
   @@unique([userId, actionType, target])
   @@index([userId, status])
+  @@map("workflow_patterns")
+}
+
+model AutomationRule {
+  id             String   @id @default(uuid())
+  userId         String
+  name           String
+  enabled        Boolean  @default(true)
+  triggerType    String
+  triggerValue   String
+  actionType     String
+  actionTarget   String
+  executionCount Int      @default(0)
+  lastExecutedAt DateTime?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId, enabled])
   @@map("automation_rules")
+}
+
+model AutomationExecution {
+  id          String   @id @default(uuid())
+  ruleId      String
+  emailId     String
+  actionTaken String
+  success     Boolean  @default(true)
+  error       String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([ruleId])
+  @@index([emailId])
+  @@map("automation_executions")
 }

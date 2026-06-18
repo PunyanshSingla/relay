@@ -250,6 +250,11 @@ export const classifyBatchJob = inngest.createFunction(
       });
 
       await markSyncComplete(userId);
+
+      await step.sendEvent("dispatch-automations", {
+        name: "email/run-automations",
+        data: { userId },
+      });
     }
 
     return { classified: totalClassified, remaining: remainingCount };

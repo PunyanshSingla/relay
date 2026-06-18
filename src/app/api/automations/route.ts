@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const rules = await prisma.automationRule.findMany({
+  const rules = await prisma.workflowPattern.findMany({
     where: {
       userId: session.user.id,
       status: "suggested",
