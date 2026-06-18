@@ -4,6 +4,7 @@ import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
 import { gmailCacheInvalidate } from "@/lib/gmail-cache";
 import { prisma } from "@/lib/prisma";
+import { logAction } from "@/lib/action-logger";
 
 type Action = "star" | "unstar" | "archive" | "trash" | "read" | "unread" | "spam" | "unspam" | "restore";
 
@@ -70,7 +71,16 @@ export async function POST(
       gmailCacheInvalidate(session.user.id, id);
     }
       if (actionTypeMap[action]) {
-        logAction(session.user.id, actionTypeMap[action] as "star_email" | "archive_email" | "trash_email", gmailId).catch(() => { });
+        const email = await prisma.email.findUnique({ where: { id }, select: { from: true, subject: true, category: true, threadId: true } });
+        logAction({
+          userId: session.user.id,
+          actionType: actionTypeMap[action],
+          target: gmailId,
+          sender: email?.from,
+          subject: email?.subject,
+          category: email?.category,
+          threadId: email?.threadId,
+        }).catch(() => { });
       }
 
       return NextResponse.json({ ok: true });

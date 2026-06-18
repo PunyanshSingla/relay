@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getUpcomingEvents } from "@/lib/sync/calendar";
 import { corsair, ensureCorsairSetup, ensureTenant } from "@/lib/corsair";
+import { logAction } from "@/lib/action-logger";
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -89,6 +90,13 @@ export async function POST(request: Request) {
     });
 
     console.log("[calendar/events] Created event:", JSON.stringify(result));
+
+    logAction({
+      userId: session.user.id,
+      actionType: "create_event",
+      target: result.id ?? "",
+      subject: summary,
+    }).catch(() => {});
 
     return NextResponse.json({ event: result }, { status: 201 });
   } catch (error) {

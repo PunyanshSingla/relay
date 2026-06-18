@@ -56,7 +56,21 @@ export async function POST(request: Request) {
     data: { userId: session.user.id, emailId, mode: mode ?? "professional" },
   });
 
-  logAction(session.user.id, "ai_reply", emailId, { mode: mode ?? "professional" }).catch(() => {});
+  const emailForLog = await prisma.email.findUnique({
+    where: { id: emailId },
+    select: { from: true, subject: true, category: true, threadId: true },
+  });
+
+  logAction({
+    userId: session.user.id,
+    actionType: "ai_reply",
+    target: emailId,
+    sender: emailForLog?.from,
+    subject: emailForLog?.subject,
+    category: emailForLog?.category,
+    threadId: emailForLog?.threadId,
+    metadata: { mode: mode ?? "professional" },
+  }).catch(() => {});
 
   return NextResponse.json({ status: "generating" });
 }

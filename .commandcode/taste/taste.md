@@ -31,3 +31,6 @@
 # package-manager
 - Use pnpm for package management (user will install dependencies themselves). Confidence: 0.85
 
+# shortcuts
+- Do not use single-letter global keyboard shortcuts (e.g., 'c' for compose) — they interfere with normal typing in input fields. Confidence: 0.70
+

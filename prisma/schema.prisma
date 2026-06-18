@@ -258,12 +258,59 @@ model UserAction {
   userId     String
   actionType String
   target     String
+  sender     String?
+  subject    String?
+  category   String?
+  threadId   String?
+  contactId  String?
+  duration   Int?     // duration in ms for AI interactions
   metadata   Json?
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([userId, actionType])
   @@index([userId, actionType, target])
+  @@index([userId, createdAt])
   @@map("user_actions")
+}
+
+model WorkflowSequence {
+  id          String   @id @default(uuid())
+  userId      String
+  sequence    String[] // e.g. ["OPEN_EMAIL", "FORWARD_EMAIL", "ARCHIVE_EMAIL"]
+  patternHash String   // hash of the sequence for fast lookup
+  count       Int      @default(0)
+  confidence  Float    @default(0)
+  lastSeenAt  DateTime?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([userId, patternHash])
+  @@index([userId, confidence])
+  @@map("workflow_sequences")
+}
+
+model WorkflowCandidate {
+  id                String   @id @default(uuid())
+  userId            String
+  name              String
+  description       String   @db.Text
+  category          String   // e.g. "email_triage", "support_escalation", "recruiting"
+  confidence        Float    @default(0)
+  frequency         Int      @default(0)
+  consistency       Float    @default(0) // 0-1 score
+  recency           Float    @default(0) // 0-1 score
+  timeSavedPerWeek  Float    @default(0) // in minutes
+  triggerActions    Json?    // the actions that trigger this
+  suggestedActions  Json?    // the actions that should be taken
+  status            String   @default("suggested") // suggested, enabled, dismissed, executed
+  automationRuleId  String?  // link to automation rule if enabled
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([userId, name])
+  @@index([userId, status])
+  @@index([userId, confidence])
+  @@map("workflow_candidates")
 }
 
 model WorkflowPattern {

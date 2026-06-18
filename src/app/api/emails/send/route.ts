@@ -138,7 +138,12 @@ export async function POST(request: Request) {
       }).catch(() => {});
     }
 
-    logAction(session.user.id, "send_email", toParsed.email, { subject }).catch(() => {});
+    logAction({
+      userId: session.user.id,
+      actionType: "send_email",
+      target: toParsed.email,
+      subject: subject,
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

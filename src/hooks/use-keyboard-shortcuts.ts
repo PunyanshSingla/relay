@@ -14,17 +14,19 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
   const { currentEmailId, onArchive } = options;
 
   const isOnThreadView = pathname.startsWith("/dashboard/inbox/");
-  const isOnInput =
-    typeof document !== "undefined" &&
-    document.activeElement instanceof HTMLElement &&
-    (document.activeElement.tagName === "INPUT" ||
-      document.activeElement.tagName === "TEXTAREA" ||
-      document.activeElement.isContentEditable);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       // Skip if user is typing in an input
-      if (isOnInput) return;
+      const activeEl = document.activeElement;
+      if (
+        activeEl instanceof HTMLElement &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.isContentEditable)
+      ) {
+        return;
+      }
 
       // Skip if modifier keys are held (except Shift for Shift+R)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -86,7 +88,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
         }
       }
     },
-    [router, isOnThreadView, currentEmailId, isOnInput, onArchive]
+    [router, isOnThreadView, currentEmailId, onArchive]
   );
 
   useEffect(() => {

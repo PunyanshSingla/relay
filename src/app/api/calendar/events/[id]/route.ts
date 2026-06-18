@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { corsair, ensureCorsairSetup, ensureTenant } from "@/lib/corsair";
+import { logAction } from "@/lib/action-logger";
 
 export async function GET(
   request: Request,
@@ -88,6 +89,13 @@ export async function PUT(
       event: eventPayload as Parameters<typeof tenant.googlecalendar.api.events.update>[0]["event"],
     });
 
+    logAction({
+      userId: session.user.id,
+      actionType: "update_event",
+      target: id,
+      subject: summary,
+    }).catch(() => {});
+
     return NextResponse.json({ event: result });
   } catch (error) {
     console.error("[calendar/event] Failed to update:", error);
@@ -114,6 +122,12 @@ export async function DELETE(
     await tenant.googlecalendar.api.events.delete({
       eventId: id,
     });
+
+    logAction({
+      userId: session.user.id,
+      actionType: "delete_event",
+      target: id,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {

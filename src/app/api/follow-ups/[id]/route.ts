@@ -39,7 +39,11 @@ export async function PATCH(
   });
 
   if (status === "dismissed") {
-    logAction(session.user.id, "dismiss_followup", id).catch(() => {});
+    logAction({
+      userId: session.user.id,
+      actionType: "dismiss_followup",
+      target: id,
+    }).catch(() => {});
   }
 
   return NextResponse.json({ ok: true });
