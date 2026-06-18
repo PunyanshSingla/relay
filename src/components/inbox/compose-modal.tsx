@@ -126,7 +126,9 @@ export function ComposeModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) {
       if (mode === "reply" && replyTo) {
         setTo(replyTo.email);
@@ -170,7 +172,7 @@ export function ComposeModal({
       setUrlInput("");
       setShowUrlInput(false);
     }
-  }, [open, mode, replyTo]);
+  }
 
   const addAttachments = (files: FileList | File[]) => {
     const newAttachments: Attachment[] = Array.from(files).map((file) => ({
@@ -272,11 +274,14 @@ export function ComposeModal({
   };
 
   const handleKeyDownRef = useRef<(e: KeyboardEvent) => void>(() => {});
-  handleKeyDownRef.current = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      onOpenChange(false);
-    }
-  };
+
+  useEffect(() => {
+    handleKeyDownRef.current = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onOpenChange(false);
+      }
+    };
+  });
 
   useEffect(() => {
     if (open) {

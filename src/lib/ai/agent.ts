@@ -192,15 +192,15 @@ export async function runAgentStream(
         onChunk((value as { text: string }).text);
       }
 
-      if (value.type === "tool-call-streaming-start") {
+      if ((value as { type?: string }).type === "tool-call-streaming-start") {
         const v = value as { toolCallId: string; toolName: string };
         if (DRAFT_TOOLS.has(v.toolName)) {
           argsBuffers.set(v.toolCallId, "");
         }
       }
 
-      if (value.type === "tool-call-delta") {
-        const v = value as {
+      if ((value as { type?: string }).type === "tool-call-delta") {
+        const v = value as unknown as {
           toolCallId: string;
           toolName: string;
           argsTextDelta: string;

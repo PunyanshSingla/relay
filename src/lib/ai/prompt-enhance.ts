@@ -1,6 +1,6 @@
 export type EnhanceMode = "none" | "simple" | "clarity" | "draft";
 
-const MODE_PROMPTS: Record<Exclude<EnhanceMode, "none">, string> = {
+const MODE_PROMPTS: Record<Exclude<EnhanceMode, "none">, (prompt: string) => string> = {
   simple: (prompt: string) =>
     `Enhance this user prompt to be clearer and more specific for an AI email assistant. Keep it concise. User's original prompt: "${prompt}"`,
   clarity: (prompt: string) =>

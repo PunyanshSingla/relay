@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmailList } from "@/components/inbox/email-list";
-import { cn } from "@/lib/utils";
 import type { Email } from "@/types/email";
 
 function SearchContent() {
@@ -129,7 +128,7 @@ function SearchContent() {
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Search className="size-8 mb-3 opacity-50" />
-              <p className="text-sm">No emails match "{query}"</p>
+              <p className="text-sm">No emails match &quot;{query}&quot;</p>
               <p className="text-xs mt-1">Try different words or check your spelling</p>
             </div>
           )
@@ -137,7 +136,7 @@ function SearchContent() {
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Sparkles className="size-8 mb-3 opacity-50" />
             <p className="text-sm">Search your emails with AI</p>
-            <p className="text-xs mt-1">Try "sponsorship conversations" or "investor discussions"</p>
+            <p className="text-xs mt-1">Try &quot;sponsorship conversations&quot; or &quot;investor discussions&quot;</p>
           </div>
         )}
       </div>

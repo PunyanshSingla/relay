@@ -73,7 +73,10 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
   };
 
   const triggerGenerationRef = useRef(triggerGeneration);
-  triggerGenerationRef.current = triggerGeneration;
+
+  useEffect(() => {
+    triggerGenerationRef.current = triggerGeneration;
+  });
 
   useEffect(() => {
     triggerGenerationRef.current(activeMode);

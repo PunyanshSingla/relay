@@ -122,7 +122,7 @@ function processSearches(
 const replace = (
   replaceTerm: string,
   results: Range[],
-  { state, dispatch }: any
+  { state, dispatch }: { state: import("@tiptap/pm/state").EditorState; dispatch: (tr: import("@tiptap/pm/state").Transaction) => void }
 ) => {
   const firstResult = results[0];
 
@@ -171,7 +171,7 @@ const rebaseNextResult = (
 const replaceAll = (
   replaceTerm: string,
   results: Range[],
-  { tr, dispatch }: { tr: any; dispatch: any }
+  { tr, dispatch }: { tr: import("@tiptap/pm/state").Transaction; dispatch: (tr: import("@tiptap/pm/state").Transaction) => void }
 ) => {
   if (!results.length) {
     return;
@@ -323,7 +323,7 @@ export const SearchAndReplace = Extension.create<
         ({ editor, state, dispatch }) => {
           const { replaceTerm, results } = editor.storage.searchAndReplace;
 
-          replace(replaceTerm, results, { state, dispatch });
+          replace(replaceTerm, results, { state, dispatch: dispatch! });
 
           return false;
         },
@@ -332,7 +332,7 @@ export const SearchAndReplace = Extension.create<
         ({ editor, tr, dispatch }) => {
           const { replaceTerm, results } = editor.storage.searchAndReplace;
 
-          replaceAll(replaceTerm, results, { tr, dispatch });
+          replaceAll(replaceTerm, results, { tr, dispatch: dispatch! });
 
           return false;
         },

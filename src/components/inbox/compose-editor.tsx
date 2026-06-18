@@ -73,8 +73,6 @@ interface ComposeEditorProps {
 
 export function ComposeEditor({ content = "", onChange, emailContext, ref }: ComposeEditorProps) {
     const isRemoteUpdate = useRef(false);
-    const contextRef = useRef(emailContext);
-    contextRef.current = emailContext;
 
     const extensions = useMemo(
       () =>
@@ -82,7 +80,7 @@ export function ComposeEditor({ content = "", onChange, emailContext, ref }: Com
           ...baseExtensions,
           AiSuggestion.configure({
             debounceMs: 300,
-            getContext: () => contextRef.current ?? {},
+            getContext: () => emailContext ?? {},
           }),
           SpellChecker.configure({
             dictionaryDebounceMs: 100,

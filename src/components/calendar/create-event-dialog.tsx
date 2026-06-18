@@ -83,7 +83,7 @@ function formatRRule(rrule: string): string {
   const interval = parts.INTERVAL ? parseInt(parts.INTERVAL) : 1;
   const byDay = parts.BYDAY?.split(",") ?? [];
   const dayMap: Record<string, string> = { MO: "Mon", TU: "Tue", WE: "Wed", TH: "Thu", FR: "Fri", SA: "Sat", SU: "Sun" };
-  const days = byDay.map((d) => dayMap[d] ?? d).join(", ");
+  const days = byDay.map((d: string) => dayMap[d] ?? d).join(", ");
   let desc = `Every ${interval > 1 ? `${interval} ` : ""}${freq}`;
   if (days) desc += ` (${days})`;
   return desc;

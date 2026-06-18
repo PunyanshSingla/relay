@@ -10,7 +10,7 @@ export const triggerSyncJob = inngest.createFunction(
     id: "trigger-sync",
     triggers: [{ event: "email/trigger-sync" }],
     retries: 2,
-    timeout: "5m",
+    timeouts: { start: "5m", finish: "5m" },
   },
   async ({ event, step }) => {
     const { userId } = event.data as { userId: string };

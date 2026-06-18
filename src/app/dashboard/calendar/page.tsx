@@ -219,8 +219,57 @@ export default function CalendarPage() {
   };
 
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        let rangeStart: Date;
+        let rangeEnd: Date;
+
+        if (view === "month") {
+          rangeStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+          rangeStart.setDate(1 - rangeStart.getDay());
+          rangeEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+          const endPad = 6 - rangeEnd.getDay();
+          rangeEnd.setDate(rangeEnd.getDate() + endPad + 1);
+        } else if (view === "day") {
+          rangeStart = new Date(currentDate);
+          rangeStart.setHours(0, 0, 0, 0);
+          rangeEnd = new Date(currentDate);
+          rangeEnd.setHours(23, 59, 59, 999);
+        } else {
+          rangeStart = new Date(currentDate);
+          rangeStart.setDate(rangeStart.getDate() - rangeStart.getDay());
+          rangeEnd = new Date(rangeStart);
+          rangeEnd.setDate(rangeEnd.getDate() + 7);
+        }
+
+        const params = new URLSearchParams({
+          limit: "100",
+          timeMin: rangeStart.toISOString(),
+          timeMax: rangeEnd.toISOString(),
+        });
+
+        const res = await fetch(`/api/calendar/events?${params}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          console.error("[calendar] API error:", data.error);
+          setEvents([]);
+        } else if (data.events) {
+          setEvents(data.events);
+        }
+        setLoading(false);
+        setInitialLoadDone(true);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Failed to load events:", err);
+        setLoading(false);
+        setInitialLoadDone(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [view, currentDate]);
 
   const handleRefresh = async () => {
     setSyncing(true);
@@ -724,7 +773,7 @@ export default function CalendarPage() {
       <CreateEventDialog
         open={editDialogOpen}
         onOpenChange={handleEditDialogClose}
-        editEvent={editEvent}
+        editEvent={editEvent && editEvent.id ? { ...editEvent, id: editEvent.id } : undefined}
         onSaved={handleRefresh}
       />
     </div>

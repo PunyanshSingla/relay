@@ -32,6 +32,7 @@ export function useImageUpload({ onUpload }: UseImageUploadProps = {}) {
       const errorMessage = err instanceof Error ? err.message : "Upload failed";
       setError(errorMessage);
       setUploading(false);
+      return localUrl;
     }
   };
 

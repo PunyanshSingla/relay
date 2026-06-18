@@ -87,7 +87,6 @@ export const checkFollowUpsJob = inngest.createFunction(
                       upsert: {
                         create: {
                           userId,
-                          emailId: email.id,
                           gmailId: email.gmailId,
                           threadId: email.threadId,
                           subject: email.subject,

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const search = searchParams.get("search") || "";
 
   try {
-    const where: Record<string, unknown> = { userId: session.user.id };
+    const where: { userId: string; OR?: Array<Record<string, unknown>> } = { userId: session.user.id };
 
     if (search) {
       where.OR = [
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
     const [contacts, total, vip] = await Promise.all([
       prisma.contact.findMany({
-        where: where as Parameters<typeof prisma.contact.findMany>[0]["where"],
+        where: where as never,
         orderBy: { lastInteraction: { sort: "desc", nulls: "last" } },
       }),
       prisma.contact.count({ where: { userId: session.user.id } }),

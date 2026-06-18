@@ -56,13 +56,6 @@ export const runAutomationsJob = inngest.createFunction(
             await executeAction(userId, email, rule);
           });
 
-          await step.log(`executed-rule-${rule.id}-${email.id}`, {
-            ruleId: rule.id,
-            emailId: email.id,
-            action: rule.actionType,
-            target: rule.actionTarget,
-          });
-
           await step.run(`log-execution-${rule.id}-${email.id}`, async () => {
             await prisma.automationExecution.create({
               data: {

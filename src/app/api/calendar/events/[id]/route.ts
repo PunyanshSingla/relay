@@ -19,7 +19,7 @@ export async function GET(
     const tenant = corsair.withTenant(session.user.id);
 
     const event = await tenant.googlecalendar.api.events.get({
-      eventId: id,
+      id,
     });
 
     return NextResponse.json({ event });
@@ -48,7 +48,7 @@ export async function PUT(
     const tenant = corsair.withTenant(session.user.id);
 
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const eventPayload: Record<string, unknown> = {};
+    const eventPayload: Record<string, unknown> & { start?: { dateTime?: string; date?: string; timeZone?: string }; end?: { dateTime?: string; date?: string; timeZone?: string } } = {};
 
     if (summary) eventPayload.summary = summary;
     if (description !== undefined) eventPayload.description = description;
@@ -83,7 +83,7 @@ export async function PUT(
     }
 
     const result = await tenant.googlecalendar.api.events.update({
-      eventId: id,
+      id,
       event: eventPayload as Parameters<typeof tenant.googlecalendar.api.events.update>[0]["event"],
     });
 
@@ -117,7 +117,7 @@ export async function DELETE(
     const tenant = corsair.withTenant(session.user.id);
 
     await tenant.googlecalendar.api.events.delete({
-      eventId: id,
+      id,
     });
 
     logAction({

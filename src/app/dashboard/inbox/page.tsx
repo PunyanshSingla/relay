@@ -164,9 +164,11 @@ function InboxPage() {
     if (!email) return;
     const newStarred = !email.starred;
 
-    mutate(
-      (current) =>
-        current?.map((page) => {
+    globalMutate(
+      (key: string) => typeof key === "string" && key.startsWith("/api/emails"),
+      (current) => {
+        if (!current) return current;
+        return (current as Array<{ emails: Email[] } | null>).map((page) => {
           if (!page) return page;
           return {
             ...page,
@@ -174,7 +176,8 @@ function InboxPage() {
               e.id === id ? { ...e, starred: newStarred } : e
             ),
           };
-        }),
+        });
+      },
       { revalidate: false },
     );
 
@@ -196,9 +199,11 @@ function InboxPage() {
     }
     if (unreadIds.length === 0) return;
 
-    mutate(
-      (current) =>
-        current?.map((page) => {
+    globalMutate(
+      (key: string) => typeof key === "string" && key.startsWith("/api/emails"),
+      (current) => {
+        if (!current) return current;
+        return (current as Array<{ emails: Email[] } | null>).map((page) => {
           if (!page) return page;
           return {
             ...page,
@@ -206,7 +211,8 @@ function InboxPage() {
               unreadIds.includes(e.id) ? { ...e, read: true } : e
             ),
           };
-        }),
+        });
+      },
       { revalidate: false },
     );
 

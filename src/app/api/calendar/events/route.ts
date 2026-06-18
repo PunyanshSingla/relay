@@ -115,8 +115,8 @@ export async function POST(request: Request) {
         await tenant.googlecalendar.api.events.update({
           id: result.id,
           event: {
-            conferenceData: conferenceData as Parameters<typeof tenant.googlecalendar.api.events.update>[0]["event"]["conferenceData"],
-          },
+            conferenceData: conferenceData as Record<string, unknown>,
+          } as Parameters<typeof tenant.googlecalendar.api.events.update>[0]["event"],
           conferenceDataVersion: 1,
         });
         // Re-fetch to get the hangoutLink

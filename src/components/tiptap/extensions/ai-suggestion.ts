@@ -31,7 +31,7 @@ export const AiSuggestion = Extension.create<AiSuggestionOptions>({
   },
 
   addProseMirrorPlugins() {
-    const extension = this;
+    const { options } = this;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let abortController: AbortController | null = null;
     let lastFetchText = "";
@@ -48,7 +48,7 @@ export const AiSuggestion = Extension.create<AiSuggestionOptions>({
     }
 
     function currentSuggestion(
-      state: any,
+      state: import("@tiptap/pm/state").EditorState,
     ) {
       return aiSuggestionPluginKey.getState(state) as { text: string; deco: Decoration } | null;
     }
@@ -70,11 +70,11 @@ export const AiSuggestion = Extension.create<AiSuggestionOptions>({
       clearPending();
       abortController = new AbortController();
 
-      extension.options.onSuggestionStart?.();
+      options.onSuggestionStart?.();
 
       let shouldCleanup = true;
       try {
-        const ctx = extension.options.getContext();
+        const ctx = options.getContext();
         const res = await fetch("/api/ai/compose", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -150,14 +150,14 @@ export const AiSuggestion = Extension.create<AiSuggestionOptions>({
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") {
           shouldCleanup = false;
-          extension.options.onSuggestionEnd?.();
+          options.onSuggestionEnd?.();
           abortController = null;
           return;
         }
         console.error("[ai-suggestion] fetch failed:", err);
       }
       if (shouldCleanup) {
-        extension.options.onSuggestionEnd?.();
+        options.onSuggestionEnd?.();
         abortController = null;
       }
     }
@@ -219,7 +219,7 @@ export const AiSuggestion = Extension.create<AiSuggestionOptions>({
             if (text.length < 10) return;
             debounceTimer = setTimeout(() => {
               fetchSuggestion(editorView, text);
-            }, extension.options.debounceMs);
+            }, options.debounceMs);
           };
 
           editorView.dom.addEventListener("input", handleDocChange);

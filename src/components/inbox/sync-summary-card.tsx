@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CheckCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,14 +12,10 @@ interface SyncSummaryCardProps {
 const STORAGE_KEY = "relay_sync_summary_dismissed";
 
 export function SyncSummaryCard({ totalEmails, counts }: SyncSummaryCardProps) {
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    const wasDismissed = localStorage.getItem(STORAGE_KEY);
-    if (wasDismissed) {
-      setDismissed(true);
-    }
-  }, []);
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(STORAGE_KEY) === "true";
+  });
 
   const handleDismiss = () => {
     setDismissed(true);

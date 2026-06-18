@@ -8,7 +8,7 @@ export const syncGmailJob = inngest.createFunction(
     id: "sync-gmail",
     triggers: [{ cron: "*/5 * * * *" }],
     retries: 3,
-    timeout: "3m",
+    timeouts: { start: "3m", finish: "3m" },
   },
   async ({ step }) => {
     const users = await step.run("fetch-users", async () => {

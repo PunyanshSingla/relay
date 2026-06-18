@@ -74,13 +74,13 @@ export default function FollowUpsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {loading && (
+        {isLoading && (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
           ))
         )}
 
-        {!loading && followUps.length === 0 && (
+        {!isLoading && followUps.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <Inbox className="size-8 mb-3" />
             <p className="text-sm">
@@ -91,7 +91,7 @@ export default function FollowUpsPage() {
           </div>
         )}
 
-        {!loading && followUps.map((fu) => (
+        {!isLoading && followUps.map((fu) => (
           <FollowUpItem
             key={fu.id}
             followUp={fu}

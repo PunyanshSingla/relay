@@ -33,7 +33,8 @@ const TOOL_CONFIG: Record<
 };
 
 function ToolCallResult({ toolCall }: { toolCall: ToolCall }) {
-  const hasError = toolCall.result?.error;
+  const resultObj = toolCall.result as Record<string, unknown> | undefined;
+  const hasError = resultObj?.error;
 
   if (!toolCall.result) return null;
 
@@ -41,12 +42,12 @@ function ToolCallResult({ toolCall }: { toolCall: ToolCall }) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-destructive">
         <X className="size-3" />
-        {String(toolCall.result.error)}
+        {String(resultObj.error)}
       </div>
     );
   }
 
-  const result = toolCall.result as Record<string, unknown>;
+  const result = resultObj as Record<string, unknown>;
 
   if (toolCall.name === "search_emails" && Array.isArray(result)) {
     return (
@@ -121,7 +122,7 @@ function ToolCallResult({ toolCall }: { toolCall: ToolCall }) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-orange-600 dark:text-orange-400">
         <Check className="size-3" />
-        <span>Event "{String(toolCall.args?.summary)}" created</span>
+        <span>Event &quot;{String(toolCall.args?.summary)}&quot; created</span>
       </div>
     );
   }
@@ -156,7 +157,7 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
     color: "text-muted-foreground",
   };
   const Icon = config.icon;
-  const hasResult = toolCall.result && !toolCall.result.error;
+  const hasResult: boolean = !!toolCall.result && !(toolCall.result as Record<string, unknown>)?.error;
 
   return (
     <div className="mx-4">

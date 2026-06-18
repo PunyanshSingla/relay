@@ -343,7 +343,7 @@ export default function ContactDetailPage() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === "overview" && (
+        {activeTab === "overview" && stats && (
           <OverviewTab contact={contact} stats={stats} />
         )}
         {activeTab === "emails" && (

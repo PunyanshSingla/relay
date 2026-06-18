@@ -115,8 +115,9 @@ function ComposeContent() {
   const editorRef = useRef<ComposeEditorRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch email context if replyToId is present
-  useEffect(() => {
+  const [prevReplyToId, setPrevReplyToId] = useState(replyToId);
+  if (prevReplyToId !== replyToId) {
+    setPrevReplyToId(replyToId);
     if (!replyToId) {
       setTo("");
       setCc("");
@@ -127,6 +128,12 @@ function ComposeContent() {
       setTitle("New Message");
       setOriginalEmail(null);
       setThreadId(null);
+    }
+  }
+
+  // Fetch email context if replyToId is present
+  useEffect(() => {
+    if (!replyToId) {
       return;
     }
 
@@ -162,65 +169,66 @@ function ComposeContent() {
   }, [replyToId]);
 
   // Parse and pre-populate fields once email context and user session are loaded
-  useEffect(() => {
-    if (!originalEmail) return;
+  const [prevOriginalEmail, setPrevOriginalEmail] = useState(originalEmail);
+  if (prevOriginalEmail !== originalEmail) {
+    setPrevOriginalEmail(originalEmail);
+    if (originalEmail) {
+      const normalizedSubject = originalEmail.subject.replace(/^(Re:\s*|Fwd:\s*)+/i, "");
+      const userEmail = user?.email?.toLowerCase();
 
-    const normalizedSubject = originalEmail.subject.replace(/^(Re:\s*|Fwd:\s*)+/i, "");
-    const userEmail = user?.email?.toLowerCase();
-
-    if (mode === "reply") {
-      setTo(originalEmail.from.email);
-      setSubject(`Re: ${normalizedSubject}`);
-      setBodyHtml(
-        `<br><br><blockquote style="border-left: 2px solid #ddd; padding-left: 12px; color: #555;">${
-          originalEmail.bodyHtml || originalEmail.body
-        }</blockquote>`
-      );
-      setTitle(`Reply to ${originalEmail.from.name}`);
-    } else if (mode === "replyAll") {
-      setTo(originalEmail.from.email);
-      
-      // Populate CC with all CCs and other TO recipients, excluding self
-      const allRecipients = [
-        ...originalEmail.to.map((t) => t.email),
-        ...(originalEmail.cc?.map((c) => c.email) || []),
-      ];
-      const ccList = allRecipients
-        .filter((email) => {
-          const lowerEmail = email.toLowerCase();
-          const isFrom = lowerEmail === originalEmail.from.email.toLowerCase();
-          const isSelf = userEmail ? lowerEmail === userEmail : false;
-          return !isFrom && !isSelf;
-        })
-        .join(", ");
-      
-      setCc(ccList);
-      setSubject(`Re: ${normalizedSubject}`);
-      setBodyHtml(
-        `<br><br><blockquote style="border-left: 2px solid #ddd; padding-left: 12px; color: #555;">${
-          originalEmail.bodyHtml || originalEmail.body
-        }</blockquote>`
-      );
-      setShowCcBcc(!!ccList);
-      setTitle(`Reply All to ${originalEmail.from.name}`);
-    } else if (mode === "forward") {
-      setTo("");
-      setSubject(`Fwd: ${normalizedSubject}`);
-      const dateStr = new Date(originalEmail.timestamp).toLocaleString();
-      const forwardHeader = `
-        <br><br>---------- Forwarded message ----------<br>
-        From: <b>${originalEmail.from.name}</b> &lt;${originalEmail.from.email}&gt;<br>
-        Date: ${dateStr}<br>
-        Subject: ${originalEmail.subject}<br>
-        To: ${originalEmail.to.map((t) => `${t.name} &lt;${t.email}&gt;`).join(", ")}<br>
-        ${originalEmail.cc && originalEmail.cc.length > 0 ? `Cc: ${originalEmail.cc.map((c) => `${c.name} &lt;${c.email}&gt;`).join(", ")}<br>` : ""}
-        <br>
-        ${originalEmail.bodyHtml || originalEmail.body}
-      `;
-      setBodyHtml(forwardHeader);
-      setTitle(`Forward: ${normalizedSubject}`);
+      if (mode === "reply") {
+        setTo(originalEmail.from.email);
+        setSubject(`Re: ${normalizedSubject}`);
+        setBodyHtml(
+          `<br><br><blockquote style="border-left: 2px solid #ddd; padding-left: 12px; color: #555;">${
+            originalEmail.bodyHtml || originalEmail.body
+          }</blockquote>`
+        );
+        setTitle(`Reply to ${originalEmail.from.name}`);
+      } else if (mode === "replyAll") {
+        setTo(originalEmail.from.email);
+        
+        const allRecipients = [
+          ...originalEmail.to.map((t) => t.email),
+          ...(originalEmail.cc?.map((c) => c.email) || []),
+        ];
+        const ccList = allRecipients
+          .filter((email) => {
+            const lowerEmail = email.toLowerCase();
+            const isFrom = lowerEmail === originalEmail.from.email.toLowerCase();
+            const isSelf = userEmail ? lowerEmail === userEmail : false;
+            return !isFrom && !isSelf;
+          })
+          .join(", ");
+        
+        setCc(ccList);
+        setSubject(`Re: ${normalizedSubject}`);
+        setBodyHtml(
+          `<br><br><blockquote style="border-left: 2px solid #ddd; padding-left: 12px; color: #555;">${
+            originalEmail.bodyHtml || originalEmail.body
+          }</blockquote>`
+        );
+        setShowCcBcc(!!ccList);
+        setTitle(`Reply All to ${originalEmail.from.name}`);
+      } else if (mode === "forward") {
+        setTo("");
+        setSubject(`Fwd: ${normalizedSubject}`);
+        const dateStr = new Date(originalEmail.timestamp).toLocaleString();
+        const forwardHeader = `
+          <br><br>---------- Forwarded message ----------<br>
+          From: <b>${originalEmail.from.name}</b> &lt;${originalEmail.from.email}&gt;<br>
+          Date: ${dateStr}<br>
+          Subject: ${originalEmail.subject}<br>
+          To: ${originalEmail.to.map((t) => `${t.name} &lt;${t.email}&gt;`).join(", ")}<br>
+          ${originalEmail.cc && originalEmail.cc.length > 0 ? `Cc: ${originalEmail.cc.map((c) => `${c.name} &lt;${c.email}&gt;`).join(", ")}<br>` : ""}
+          <br>
+          ${originalEmail.bodyHtml || originalEmail.body}
+        `;
+        setBodyHtml(forwardHeader);
+        setTitle(`Forward: ${normalizedSubject}`);
+      }
     }
-  }, [originalEmail, mode, user]);
+  }
 
   const addAttachments = (files: FileList | File[]) => {
     const newAttachments: Attachment[] = Array.from(files).map((file) => ({

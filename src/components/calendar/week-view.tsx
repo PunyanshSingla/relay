@@ -22,8 +22,9 @@ export function WeekView({ events, currentDate, onEventClick, onTimeSlotClick }:
     for (const day of days) {
       const key = dayKey(day);
       const events = allDayByDay.get(key) ?? [];
-      for (const ev of events) {
-        const id = ev.id ?? ev.summary;
+      for (let j = 0; j < events.length; j++) {
+        const ev = events[j];
+        const id = ev.id ?? ev.summary ?? `event-${j}`;
         if (!seen.has(id)) {
           seen.add(id);
           result.push(ev);

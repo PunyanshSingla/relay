@@ -272,7 +272,10 @@ export function TipTapFloatingMenu({ editor }: { editor: Editor }) {
   );
 
   const handleKeyDownRef = useRef(handleKeyDown);
-  handleKeyDownRef.current = handleKeyDown;
+
+  useEffect(() => {
+    handleKeyDownRef.current = handleKeyDown;
+  });
 
   useEffect(() => {
     if (!editor?.options.element) return;
@@ -293,7 +296,10 @@ export function TipTapFloatingMenu({ editor }: { editor: Editor }) {
   }, []);
 
   const resetIndexRef = useRef(resetIndexOnSearch);
-  resetIndexRef.current = resetIndexOnSearch;
+
+  useEffect(() => {
+    resetIndexRef.current = resetIndexOnSearch;
+  });
 
   useEffect(() => {
     resetIndexRef.current();
@@ -308,7 +314,7 @@ export function TipTapFloatingMenu({ editor }: { editor: Editor }) {
   return (
     <FloatingMenu
       editor={editor}
-      shouldShow={({ state }: { state: any }) => {
+      shouldShow={({ state }: { state: import("@tiptap/pm/state").EditorState }) => {
         if (!editor) return false;
 
         const { $from } = state.selection;

@@ -85,15 +85,18 @@ export const generateDailyBriefJob = inngest.createFunction(
               priority: e.priority || "P3",
               timestamp: e.timestamp.toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
             })),
-            meetings: meetings.map((m: Record<string, unknown>) => ({
-              summary: (m.summary as string) || "Untitled meeting",
-              startTime: m.start?.dateTime
-                ? new Date(m.start.dateTime as string).toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                : "All day",
-              attendees: Array.isArray(m.attendees)
-                ? (m.attendees as Array<{ email: string }>).map((a) => a.email).join(", ")
-                : undefined,
-            })),
+            meetings: meetings.map((m: Record<string, unknown>) => {
+              const start = m.start as { dateTime?: string } | undefined;
+              return {
+                summary: (m.summary as string) || "Untitled meeting",
+                startTime: start?.dateTime
+                  ? new Date(start.dateTime).toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                  : "All day",
+                attendees: Array.isArray(m.attendees)
+                  ? (m.attendees as Array<{ email: string }>).map((a) => a.email).join(", ")
+                  : undefined,
+              };
+            }),
             pendingFollowUps: pendingFollowUps.map((f) => ({
               subject: f.subject,
               toEmail: f.toEmail,
@@ -133,7 +136,7 @@ export const generateDailyBriefJob = inngest.createFunction(
               meetingCount: briefInput.meetingCount,
               followUpCount: briefInput.followUpCount,
               overdueCount: briefInput.overdueCount,
-              rawInput: briefInput.input as unknown as Record<string, unknown>,
+              rawInput: briefInput.input as unknown as Record<string, string>,
             },
             update: {
               summary,
@@ -141,7 +144,7 @@ export const generateDailyBriefJob = inngest.createFunction(
               meetingCount: briefInput.meetingCount,
               followUpCount: briefInput.followUpCount,
               overdueCount: briefInput.overdueCount,
-              rawInput: briefInput.input as unknown as Record<string, unknown>,
+              rawInput: briefInput.input as unknown as Record<string, string>,
             },
           });
         });

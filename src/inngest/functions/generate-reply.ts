@@ -44,7 +44,7 @@ export const generateReplyJob = inngest.createFunction(
       return { cached: false };
     });
 
-    if (cached.cached) {
+    if (cached.cached && "needsReply" in cached) {
       return { needsReply: cached.needsReply, reply: cached.reply, reason: cached.reason };
     }
 

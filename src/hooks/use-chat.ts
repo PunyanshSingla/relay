@@ -58,9 +58,10 @@ function applyToolCall(
   data: { name: string; args: Record<string, unknown>; result?: unknown },
   prev: Message
 ): Partial<Message> {
-  const newToolCalls = [...(prev.toolCalls || []), data];
+  const newToolCalls = [...(prev.toolCalls || []), data as ToolCall];
 
-  let draft = data.result?.draft ? (data.result as DraftResult) : undefined;
+  const resultObj = data.result as Record<string, unknown> | undefined;
+  let draft = resultObj?.draft ? (data.result as DraftResult) : undefined;
   if (!draft && data.name === "draft_email" && data.args?.to) {
     draft = {
       draft: true,
@@ -80,12 +81,12 @@ function applyToolCall(
       replyToId: data.args.emailId as string,
     };
   }
-  if (!draft && data.result?.draft && prev.draft) {
+  if (!draft && resultObj?.draft && prev.draft) {
     draft = data.result as DraftResult;
   }
 
   let sentEmail = prev.sentEmail;
-  if (data.name === "send_email" && data.result?.success) {
+  if (data.name === "send_email" && resultObj?.success) {
     sentEmail = {
       to: data.args?.to as string,
       subject: data.args?.subject as string,

@@ -70,21 +70,25 @@ export default function AutomationsPage() {
     actionTarget: "",
   });
 
-  const fetchRules = async () => {
-    try {
-      const res = await fetch("/api/automations/rules");
-      if (!res.ok) throw new Error("Failed");
-      const data = await res.json();
-      setRules(data.rules);
-      setLoading(false);
-    } catch {
-      setRules([]);
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchRules();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/automations/rules");
+        if (!res.ok) throw new Error("Failed");
+        const data = await res.json();
+        if (!cancelled) {
+          setRules(data.rules);
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setRules([]);
+          setLoading(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const handleCreate = async () => {

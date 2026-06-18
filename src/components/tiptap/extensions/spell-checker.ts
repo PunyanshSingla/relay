@@ -39,12 +39,12 @@ export const SpellChecker = Extension.create<SpellCheckerOptions>({
   },
 
   addProseMirrorPlugins() {
-    const extension = this;
+    const { options } = this;
     let dictTimer: ReturnType<typeof setTimeout> | null = null;
     let aiRankTimer: ReturnType<typeof setTimeout> | null = null;
     let aiRankAbort: AbortController | null = null;
     let tooltipEl: HTMLDivElement | null = null;
-    let ignoredWords = new Set<string>();
+    const ignoredWords = new Set<string>();
     let dictionaryReady = false;
     let currentHoveredError: SpellError | null = null;
 
@@ -288,7 +288,7 @@ export const SpellChecker = Extension.create<SpellCheckerOptions>({
         }),
       );
 
-      extension.options.onErrorsFound?.(errors);
+      options.onErrorsFound?.(errors);
       scheduleAiRanking(view);
     }
 
@@ -375,7 +375,7 @@ export const SpellChecker = Extension.create<SpellCheckerOptions>({
       if (aiRankTimer) clearTimeout(aiRankTimer);
       aiRankTimer = setTimeout(
         () => runAiRanking(view),
-        extension.options.aiRankDebounceMs,
+        options.aiRankDebounceMs,
       );
     }
 
@@ -387,7 +387,7 @@ export const SpellChecker = Extension.create<SpellCheckerOptions>({
       if (dictTimer) clearTimeout(dictTimer);
       dictTimer = setTimeout(
         () => runDictionaryCheck(view),
-        extension.options.dictionaryDebounceMs,
+        options.dictionaryDebounceMs,
       );
     }
 
@@ -461,7 +461,7 @@ export const SpellChecker = Extension.create<SpellCheckerOptions>({
             } else {
               aiRankTimer = setTimeout(
                 () => runAiRanking(editorView),
-                extension.options.aiRankDebounceMs,
+                options.aiRankDebounceMs,
               );
             }
           };

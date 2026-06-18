@@ -48,8 +48,19 @@ export function SyncStatusProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
-    fetchSyncStatus();
-  }, [fetchSyncStatus]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/sync-status");
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setSyncState(data);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (syncState && (syncState.phase === "syncing" || syncState.phase === "classifying")) {

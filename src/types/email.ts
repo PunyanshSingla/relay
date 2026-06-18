@@ -56,7 +56,7 @@ export interface Email {
 }
 
 export interface FilterOption {
-  id: "all" | "unread" | "P1" | "P2" | "P3";
+  id: "all" | "unread" | "P1" | "P2" | "P3" | "trash" | "sent" | "spam" | "starred";
   label: string;
-  count: number;
+  count?: number;
 }

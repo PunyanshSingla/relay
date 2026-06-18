@@ -297,7 +297,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {upcomingEvents.slice(0, 3).map((event, i) => {
+                {upcomingEvents.slice(0, 3).map((event: { id?: string; status?: string; start?: { date?: string; dateTime?: string }; summary?: string; location?: string }, i: number) => {
                   const color = event.status ? (statusColors[event.status] ?? "bg-blue-500") : "bg-blue-500";
                   const dateStr = event.start?.date ?? event.start?.dateTime;
                   const time = dateStr
