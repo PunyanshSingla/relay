@@ -34,6 +34,9 @@
 # contacts
 - Contact view should show previous interactions, relationship memory, and rich history — not just a filtered email list by that contact. Confidence: 0.70
 
+# workflow
+- Let the user install UI libraries/component packages themselves — focus on writing implementation code instead. Confidence: 0.70
+
 # shortcuts
 - Do not use single-letter global keyboard shortcuts (e.g., 'c' for compose) — they interfere with normal typing in input fields. Confidence: 0.70
 

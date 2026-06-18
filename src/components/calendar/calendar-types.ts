@@ -7,6 +7,7 @@ export interface CalendarEvent {
   end?: { dateTime?: string; date?: string; timeZone?: string };
   status?: string;
   htmlLink?: string;
+  hangoutLink?: string;
   attendees?: Array<{ email?: string; displayName?: string; responseStatus?: string }>;
   eventType?: string;
 }

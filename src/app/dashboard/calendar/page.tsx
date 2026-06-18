@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Sparkles,
   Loader2 as Loader2Icon,
+  Video,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ interface CalendarEvent {
   attendees?: Array<{ email?: string; displayName?: string; responseStatus?: string }>;
   status?: string;
   htmlLink?: string;
+  hangoutLink?: string;
   eventType?: string;
 }
 
@@ -539,6 +541,14 @@ export default function CalendarPage() {
                               <a href={event.htmlLink} target="_blank" rel="noopener noreferrer">
                                 <ExternalLink className="size-3" />
                                 Open in Google Calendar
+                              </a>
+                            </Button>
+                          )}
+                          {event.hangoutLink && (
+                            <Button variant="outline" size="xs" className="h-6 text-xs border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10" asChild>
+                              <a href={event.hangoutLink} target="_blank" rel="noopener noreferrer">
+                                <Video className="size-3" />
+                                Join Google Meet
                               </a>
                             </Button>
                           )}

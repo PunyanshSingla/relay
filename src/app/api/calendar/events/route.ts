@@ -35,13 +35,25 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { summary, description, location, start, end, startDateTime, endDateTime, attendees } = body;
+    const { summary, description, location, start, end, startDateTime, endDateTime, attendees, conferenceData } = body;
 
     const rawStart = start || startDateTime;
     const rawEnd = end || endDateTime;
 
     if (!summary || !rawStart) {
       return NextResponse.json({ error: "summary and start are required" }, { status: 400 });
+    }
+
+    // Validate start/end times
+    const startDateTimeStr = typeof rawStart === "string" ? rawStart : rawStart?.dateTime;
+    const endDateTimeStr = typeof rawEnd === "string" ? rawEnd : rawEnd?.dateTime;
+
+    if (startDateTimeStr && endDateTimeStr) {
+      const startDate = new Date(startDateTimeStr);
+      const endDate = new Date(endDateTimeStr);
+      if (endDate <= startDate) {
+        return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
+      }
     }
 
     // Build Google Calendar event object, stripping undefined fields
@@ -72,6 +84,7 @@ export async function POST(request: Request) {
 
     const tenant = corsair.withTenant(session.user.id);
 
+    // Build event without conferenceData first (Corsair create doesn't pass conferenceDataVersion)
     const eventPayload: Record<string, unknown> = {
       summary,
       start: eventStart,
@@ -88,6 +101,26 @@ export async function POST(request: Request) {
     const result = await tenant.googlecalendar.api.events.create({
       event: eventPayload as Parameters<typeof tenant.googlecalendar.api.events.create>[0]["event"],
     });
+
+    // If conference data requested, update the event to add Meet link
+    // (Corsair's create doesn't pass conferenceDataVersion as query param, but update does)
+    if (conferenceData && result.id) {
+      try {
+        await tenant.googlecalendar.api.events.update({
+          id: result.id,
+          event: {
+            conferenceData: conferenceData as Parameters<typeof tenant.googlecalendar.api.events.update>[0]["event"]["conferenceData"],
+          },
+          conferenceDataVersion: 1,
+        });
+        // Re-fetch to get the hangoutLink
+        const updated = await tenant.googlecalendar.api.events.get({ id: result.id });
+        Object.assign(result, updated);
+      } catch (meetErr) {
+        console.error("[calendar/events] Failed to add Meet link:", meetErr);
+        // Event was created successfully, just without Meet link — don't fail the whole request
+      }
+    }
 
     console.log("[calendar/events] Created event:", JSON.stringify(result));
 

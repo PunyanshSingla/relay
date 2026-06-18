@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Video } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,7 @@ interface EventFormData {
   endTime: string;
   attendees: string[];
   colorId: string;
+  addMeet: boolean;
 }
 
 function getInitialFormData(prefillDate?: Date | null): EventFormData {
@@ -66,6 +67,7 @@ function getInitialFormData(prefillDate?: Date | null): EventFormData {
       endTime: toTimeInputValue(end),
       attendees: [],
       colorId: "",
+      addMeet: true,
     };
   }
   return {
@@ -78,6 +80,7 @@ function getInitialFormData(prefillDate?: Date | null): EventFormData {
     endTime: "",
     attendees: [],
     colorId: "",
+    addMeet: true,
   };
 }
 
@@ -124,6 +127,7 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
         endTime: isAllDay ? "" : toTimeInputValue(ed),
         attendees: editEvent.attendees?.map((a) => a.email ?? "").filter(Boolean) ?? [],
         colorId: editEvent.colorId ?? "",
+        addMeet: false,
       });
     } else {
       setForm(getInitialFormData(prefillDate));
@@ -163,32 +167,70 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
       return;
     }
 
+    // Validate start time is not in the past (for timed events)
+    if (form.startTime) {
+      const startDt = new Date(`${form.startDate}T${form.startTime}`);
+      if (startDt < new Date()) {
+        toast.error("Start time cannot be in the past");
+        return;
+      }
+    }
+
+    // Validate end > start
+    if (form.startTime && form.endTime) {
+      const startDt = new Date(`${form.startDate}T${form.startTime}`);
+      const endDate = form.endDate || form.startDate;
+      const endDt = new Date(`${endDate}T${form.endTime}`);
+      if (endDt <= startDt) {
+        toast.error("End time must be after start time");
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
+      const startIso = form.startTime
+        ? new Date(`${form.startDate}T${form.startTime}`).toISOString()
+        : undefined;
+      const startDate = !form.startTime ? form.startDate : undefined;
+
+      // Default end to start + 1 hour if not explicitly set
+      let endIso: string | undefined;
+      let endDateVal: string | undefined;
+      if (form.endTime && (form.endDate || form.startDate)) {
+        endIso = new Date(`${form.endDate || form.startDate}T${form.endTime}`).toISOString();
+      } else if (startIso) {
+        endIso = new Date(new Date(startIso).getTime() + 60 * 60 * 1000).toISOString();
+      } else if (form.startDate) {
+        endDateVal = form.startDate;
+      }
+
       const payload: Record<string, unknown> = {
         summary: form.summary.trim(),
         description: form.description.trim() || undefined,
         location: form.location.trim() || undefined,
         start: {
-          dateTime: form.startTime
-            ? new Date(`${form.startDate}T${form.startTime}`).toISOString()
-            : undefined,
-          date: !form.startTime ? form.startDate : undefined,
+          dateTime: startIso,
+          date: startDate,
         },
         end: {
-          dateTime: form.endTime && form.endDate
-            ? new Date(`${form.endDate || form.startDate}T${form.endTime}`).toISOString()
-            : undefined,
-          date: !form.endTime && form.endDate
-            ? form.endDate
-            : !form.endTime && !form.startTime
-              ? form.startDate
-              : undefined,
+          dateTime: endIso,
+          date: endDateVal,
         },
         attendees: form.attendees.length > 0 ? form.attendees : undefined,
         colorId: form.colorId || undefined,
       };
+
+      if (form.addMeet && !isEditing) {
+        payload.conferenceDataVersion = 1;
+        payload.conferenceData = {
+          createRequest: {
+            requestId: `meet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            conferenceSolutionKey: { type: "hangoutsMeet" },
+          },
+        };
+      }
 
       const url = isEditing
         ? `/api/calendar/events/${editEvent.id}`
@@ -239,27 +281,73 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
           </div>
 
           {/* Start */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="start-date">Start date</Label>
-              <Input id="start-date" type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} />
+          <div className="space-y-1.5">
+            <Label htmlFor="start-date">When</Label>
+            <div className="flex gap-2">
+              <Input id="start-date" type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} className="flex-1" />
+              <Input id="start-time" type="time" value={form.startTime} onChange={(e) => update("startTime", e.target.value)} className="w-28" />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="start-time">Start time</Label>
-              <Input id="start-time" type="time" value={form.startTime} onChange={(e) => update("startTime", e.target.value)} />
-            </div>
+            {/* Quick time presets */}
+            {form.startDate && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      update("startTime", t);
+                      // Auto-set end time to +1 hour
+                      const h = parseInt(t.split(":")[0]) + 1;
+                      update("endTime", `${String(h).padStart(2, "0")}:00`);
+                    }}
+                    className={cn(
+                      "px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors",
+                      form.startTime === t
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted border-border"
+                    )}
+                  >
+                    {parseInt(t) > 12 ? `${parseInt(t) - 12} PM` : t === "12:00" ? "12 PM" : `${parseInt(t)} AM`}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* End */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="end-date">End date</Label>
-              <Input id="end-date" type="date" value={form.endDate} onChange={(e) => update("endDate", e.target.value)} />
+          <div className="space-y-1.5">
+            <Label htmlFor="end-date">End</Label>
+            <div className="flex gap-2">
+              <Input id="end-date" type="date" value={form.endDate || form.startDate} onChange={(e) => update("endDate", e.target.value)} className="flex-1" />
+              <Input id="end-time" type="time" value={form.endTime} onChange={(e) => update("endTime", e.target.value)} className="w-28" />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="end-time">End time</Label>
-              <Input id="end-time" type="time" value={form.endTime} onChange={(e) => update("endTime", e.target.value)} />
-            </div>
+            {/* Quick duration presets */}
+            {form.startTime && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {[30, 60, 90, 120].map((mins) => {
+                  const [h, m] = form.startTime.split(":").map(Number);
+                  const endMins = h * 60 + m + mins;
+                  const eh = Math.floor(endMins / 60);
+                  const em = endMins % 60;
+                  const endVal = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+                  return (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => update("endTime", endVal)}
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors",
+                        form.endTime === endVal
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted border-border"
+                      )}
+                    >
+                      {mins < 60 ? `${mins}m` : `${mins / 60}h`}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Location */}
@@ -329,6 +417,32 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
               ))}
             </div>
           </div>
+
+          {/* Google Meet */}
+          {!isEditing && (
+            <div className="flex items-center gap-3 rounded-lg border border-border p-3">
+              <button
+                type="button"
+                onClick={() => update("addMeet", !form.addMeet)}
+                className={cn(
+                  "size-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
+                  form.addMeet
+                    ? "bg-primary border-primary text-primary-foreground"
+                    : "border-muted-foreground/30 hover:border-muted-foreground/50"
+                )}
+              >
+                {form.addMeet && (
+                  <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+              <div className="flex items-center gap-2">
+                <Video className="size-4 text-emerald-500" />
+                <span className="text-sm">Add Google Meet</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
