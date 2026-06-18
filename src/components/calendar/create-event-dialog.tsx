@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { X, Plus, Video } from "lucide-react";
+import { X, Plus, Video, Bell, Repeat } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+
+function formatMinutes(mins: number): string {
+  if (mins < 60) return `${mins} min`;
+  if (mins < 1440) return `${mins / 60} hour${mins / 60 > 1 ? "s" : ""}`;
+  if (mins < 10080) return `${mins / 1440} day${mins / 1440 > 1 ? "s" : ""}`;
+  return `${mins / 10080} week${mins / 10080 > 1 ? "s" : ""}`;
+}
 
 function toDateInputValue(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -49,7 +56,49 @@ interface EventFormData {
   attendees: string[];
   colorId: string;
   addMeet: boolean;
+  useDefaultReminders: boolean;
+  reminders: Array<{ method: "email" | "popup"; minutes: number }>;
+  recurrence: string;
 }
+
+const RECURRENCE_OPTIONS = [
+  { label: "Does not repeat", value: "" },
+  { label: "Every day", value: "RRULE:FREQ=DAILY" },
+  { label: "Every week", value: "RRULE:FREQ=WEEKLY" },
+  { label: "Every 2 weeks", value: "RRULE:FREQ=WEEKLY;INTERVAL=2" },
+  { label: "Every month", value: "RRULE:FREQ=MONTHLY" },
+  { label: "Every year", value: "RRULE:FREQ=YEARLY" },
+  { label: "Weekdays (Mon–Fri)", value: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" },
+  { label: "Every Friday & Saturday", value: "RRULE:FREQ=WEEKLY;BYDAY=FR,SA" },
+  { label: "Every Monday, Wednesday, Friday", value: "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR" },
+];
+
+function formatRRule(rrule: string): string {
+  const opt = RECURRENCE_OPTIONS.find((o) => o.value === rrule);
+  if (opt) return opt.label;
+  if (!rrule) return "";
+  // Parse custom RRULE for display
+  const parts = Object.fromEntries(rrule.replace("RRULE:", "").split(";").map((p) => p.split("=")));
+  const freq = parts.FREQ?.toLowerCase() ?? "";
+  const interval = parts.INTERVAL ? parseInt(parts.INTERVAL) : 1;
+  const byDay = parts.BYDAY?.split(",") ?? [];
+  const dayMap: Record<string, string> = { MO: "Mon", TU: "Tue", WE: "Wed", TH: "Thu", FR: "Fri", SA: "Sat", SU: "Sun" };
+  const days = byDay.map((d) => dayMap[d] ?? d).join(", ");
+  let desc = `Every ${interval > 1 ? `${interval} ` : ""}${freq}`;
+  if (days) desc += ` (${days})`;
+  return desc;
+}
+
+const REMINDER_PRESETS = [
+  { label: "5 min before", minutes: 5, method: "popup" as const },
+  { label: "10 min before", minutes: 10, method: "popup" as const },
+  { label: "15 min before", minutes: 15, method: "popup" as const },
+  { label: "30 min before", minutes: 30, method: "popup" as const },
+  { label: "1 hour before", minutes: 60, method: "popup" as const },
+  { label: "1 day before", minutes: 1440, method: "email" as const },
+  { label: "2 days before", minutes: 2880, method: "email" as const },
+  { label: "1 week before", minutes: 10080, method: "email" as const },
+];
 
 function getInitialFormData(prefillDate?: Date | null): EventFormData {
   if (prefillDate) {
@@ -68,6 +117,9 @@ function getInitialFormData(prefillDate?: Date | null): EventFormData {
       attendees: [],
       colorId: "",
       addMeet: true,
+      useDefaultReminders: false,
+      reminders: [{ method: "popup", minutes: 10 }],
+      recurrence: "",
     };
   }
   return {
@@ -81,6 +133,9 @@ function getInitialFormData(prefillDate?: Date | null): EventFormData {
     attendees: [],
     colorId: "",
     addMeet: true,
+    useDefaultReminders: false,
+    reminders: [{ method: "popup", minutes: 10 }],
+    recurrence: "",
   };
 }
 
@@ -128,6 +183,9 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
         attendees: editEvent.attendees?.map((a) => a.email ?? "").filter(Boolean) ?? [],
         colorId: editEvent.colorId ?? "",
         addMeet: false,
+        useDefaultReminders: false,
+        reminders: [{ method: "popup", minutes: 10 }],
+        recurrence: "",
       });
     } else {
       setForm(getInitialFormData(prefillDate));
@@ -230,6 +288,24 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
             conferenceSolutionKey: { type: "hangoutsMeet" },
           },
         };
+      }
+
+      // Reminders
+      if (form.useDefaultReminders) {
+        payload.reminders = { useDefault: true };
+      } else if (form.reminders.length > 0) {
+        payload.reminders = {
+          useDefault: false,
+          overrides: form.reminders.map((r) => ({
+            method: r.method,
+            minutes: r.minutes,
+          })),
+        };
+      }
+
+      // Recurrence
+      if (form.recurrence) {
+        payload.recurrence = [form.recurrence];
       }
 
       const url = isEditing
@@ -418,6 +494,36 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
             </div>
           </div>
 
+          {/* Recurrence */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <Repeat className="size-3.5" />
+              Repeat
+            </Label>
+            <div className="flex flex-wrap gap-1.5">
+              {RECURRENCE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => update("recurrence", form.recurrence === opt.value ? "" : opt.value)}
+                  className={cn(
+                    "px-2 py-1 rounded-full text-[11px] font-medium border transition-colors",
+                    form.recurrence === opt.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted border-border"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {form.recurrence && (
+              <p className="text-[11px] text-muted-foreground">
+                {formatRRule(form.recurrence)}
+              </p>
+            )}
+          </div>
+
           {/* Google Meet */}
           {!isEditing && (
             <div className="flex items-center gap-3 rounded-lg border border-border p-3">
@@ -443,6 +549,98 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
               </div>
             </div>
           )}
+
+          {/* Notifications / Reminders */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5">
+                <Bell className="size-3.5" />
+                Notifications
+              </Label>
+              <button
+                type="button"
+                onClick={() => update("useDefaultReminders", !form.useDefaultReminders)}
+                className={cn(
+                  "text-[11px] font-medium transition-colors",
+                  form.useDefaultReminders
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {form.useDefaultReminders ? "Using calendar default" : "Custom"}
+              </button>
+            </div>
+
+            {!form.useDefaultReminders && (
+              <>
+                {/* Preset buttons */}
+                <div className="flex flex-wrap gap-1.5">
+                  {REMINDER_PRESETS.map((preset) => {
+                    const active = form.reminders.some(
+                      (r) => r.minutes === preset.minutes && r.method === preset.method
+                    );
+                    return (
+                      <button
+                        key={`${preset.minutes}-${preset.method}`}
+                        type="button"
+                        onClick={() => {
+                          if (active) {
+                            update(
+                              "reminders",
+                              form.reminders.filter(
+                                (r) => !(r.minutes === preset.minutes && r.method === preset.method)
+                              )
+                            );
+                          } else {
+                            update("reminders", [
+                              ...form.reminders,
+                              { method: preset.method, minutes: preset.minutes },
+                            ]);
+                          }
+                        }}
+                        className={cn(
+                          "px-2 py-1 rounded-full text-[11px] font-medium border transition-colors",
+                          active
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted border-border"
+                        )}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active reminders list */}
+                {form.reminders.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.reminders.map((r, i) => (
+                      <span
+                        key={`${r.method}-${r.minutes}-${i}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-xs"
+                      >
+                        <span className="capitalize">{r.method}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span>{formatMinutes(r.minutes)}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            update(
+                              "reminders",
+                              form.reminders.filter((_, j) => j !== i)
+                            )
+                          }
+                          className="hover:text-foreground"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <DialogFooter>

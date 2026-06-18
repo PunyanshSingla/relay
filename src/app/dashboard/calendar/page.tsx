@@ -331,6 +331,109 @@ export default function CalendarPage() {
 
   const miniDays = useMemo(() => makeMiniDays(miniYear, miniMonth), [miniYear, miniMonth]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl instanceof HTMLElement &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.isContentEditable)
+      ) return;
+
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const key = e.key;
+
+      // ← → navigate day
+      if (key === "ArrowLeft") {
+        e.preventDefault();
+        setCurrentDate((d) => {
+          const nd = new Date(d);
+          nd.setDate(nd.getDate() - 1);
+          return nd;
+        });
+        return;
+      }
+      if (key === "ArrowRight") {
+        e.preventDefault();
+        setCurrentDate((d) => {
+          const nd = new Date(d);
+          nd.setDate(nd.getDate() + 1);
+          return nd;
+        });
+        return;
+      }
+
+      // ↑ ↓ navigate week
+      if (key === "ArrowUp") {
+        e.preventDefault();
+        setCurrentDate((d) => {
+          const nd = new Date(d);
+          nd.setDate(nd.getDate() - 7);
+          return nd;
+        });
+        return;
+      }
+      if (key === "ArrowDown") {
+        e.preventDefault();
+        setCurrentDate((d) => {
+          const nd = new Date(d);
+          nd.setDate(nd.getDate() + 7);
+          return nd;
+        });
+        return;
+      }
+
+      // T — jump to today
+      if (key === "t" || key === "T") {
+        e.preventDefault();
+        setCurrentDate(new Date());
+        return;
+      }
+
+      // N — new event
+      if (key === "n" || key === "N") {
+        e.preventDefault();
+        handleCreateClick();
+        return;
+      }
+
+      // M — switch to month view
+      if (key === "m" || key === "M") {
+        e.preventDefault();
+        setView("month");
+        return;
+      }
+
+      // W — switch to week view
+      if (key === "w" || key === "W") {
+        e.preventDefault();
+        setView("week");
+        return;
+      }
+
+      // D — switch to day view
+      if (key === "d" || key === "D") {
+        e.preventDefault();
+        setView("day");
+        return;
+      }
+
+      // Escape — close day detail sheet
+      if (key === "Escape") {
+        setSelectedDate(null);
+        setSelectedEvent(null);
+        setMeetingPrep(null);
+        return;
+      }
+    };
+
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -436,7 +539,9 @@ export default function CalendarPage() {
                 ["← →", "Day"],
                 ["↑ ↓", "Week"],
                 ["T", "Today"],
-                ["Double-click", "New event"],
+                ["N", "New event"],
+                ["M / W / D", "Month / Week / Day"],
+                ["Esc", "Close panel"],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between text-xs">
                   <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">{key}</kbd>

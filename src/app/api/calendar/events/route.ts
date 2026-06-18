@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { summary, description, location, start, end, startDateTime, endDateTime, attendees, conferenceData } = body;
+    const { summary, description, location, start, end, startDateTime, endDateTime, attendees, conferenceData, recurrence, reminders } = body;
 
     const rawStart = start || startDateTime;
     const rawEnd = end || endDateTime;
@@ -94,6 +94,12 @@ export async function POST(request: Request) {
     if (location) eventPayload.location = location;
     if (attendees?.length) {
       eventPayload.attendees = attendees.map((email: string) => ({ email }));
+    }
+    if (recurrence?.length) {
+      eventPayload.recurrence = recurrence;
+    }
+    if (reminders) {
+      eventPayload.reminders = reminders;
     }
 
     console.log("[calendar/events] Creating event:", JSON.stringify(eventPayload));
