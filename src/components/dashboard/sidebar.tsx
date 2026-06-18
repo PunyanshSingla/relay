@@ -15,6 +15,10 @@ import {
   Command,
   PanelLeftClose,
   PanelLeftOpen,
+  Trash2,
+  Send,
+  AlertTriangle,
+  Star,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,10 +38,10 @@ interface NavItem {
 function useUnreadCount() {
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
-    fetch("/api/emails?q=is%3Aunread&maxResults=1")
+    fetch("/api/emails/counts")
       .then((r) => r.json())
       .then((data) => {
-        if (data.emails) setCount(data.emails.length);
+        if (typeof data.unread === "number") setCount(data.unread);
       })
       .catch(() => {});
   }, []);
@@ -140,6 +144,10 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
 
   const navItems: NavItem[] = [
     { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: unreadCount ?? undefined, connected: connectionStatus?.gmail },
+    { label: "Starred", href: "/dashboard/inbox?filter=starred", icon: Star },
+    { label: "Sent", href: "/dashboard/inbox?filter=sent", icon: Send },
+    { label: "Spam", href: "/dashboard/inbox?filter=spam", icon: AlertTriangle },
+    { label: "Trash", href: "/dashboard/inbox?filter=trash", icon: Trash2 },
     { label: "Calendar", href: "/dashboard/calendar", icon: Calendar, connected: connectionStatus?.calendar },
     { label: "Contacts", href: "/dashboard/contacts", icon: Users },
     { label: "Search", href: "/dashboard/search", icon: Search },

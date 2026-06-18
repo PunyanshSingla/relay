@@ -4,15 +4,17 @@ import { corsair } from "@/lib/corsair";
 import { auth } from "@/lib/auth";
 import { gmailCacheInvalidate } from "@/lib/gmail-cache";
 import { prisma } from "@/lib/prisma";
-import { logAction } from "@/lib/action-logger";
 
-type Action = "star" | "unstar" | "archive" | "trash" | "read" | "unread";
+type Action = "star" | "unstar" | "archive" | "trash" | "read" | "unread" | "spam" | "unspam" | "restore";
 
 const ACTIONS: Record<Action, { add?: string[]; remove?: string[]; trash?: boolean }> = {
   star: { add: ["STARRED"] },
   unstar: { remove: ["STARRED"] },
   archive: { remove: ["INBOX"] },
   trash: { add: ["TRASH"] },
+  spam: { add: ["SPAM"], remove: ["INBOX"] },
+  unspam: { remove: ["SPAM"] },
+  restore: { remove: ["TRASH"], add: ["INBOX"] },
   read: { remove: ["UNREAD"] },
   unread: { add: ["UNREAD"] },
 };

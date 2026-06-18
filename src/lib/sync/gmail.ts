@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { upsertSyncState } from "@/lib/sync-status";
 import crypto from "crypto";
 
-const GMAIL_LIST_TIMEOUT = 30_000;
-const GMAIL_GET_TIMEOUT = 15_000;
+const GMAIL_LIST_TIMEOUT = 60_000;
+const GMAIL_GET_TIMEOUT = 20_000;
 
 export interface RawEmail {
   gmailId: string;
@@ -42,14 +42,29 @@ export async function syncIncrementalEmails(
   let totalFetched = 0;
 
   do {
-    const listResult = await Promise.race([
-      tenant.gmail.api.messages.list({
-        maxResults: 50,
-        pageToken,
-        q,
-      }),
-      timeout(GMAIL_LIST_TIMEOUT, "messages.list"),
-    ]);
+    let listResult: Awaited<ReturnType<typeof tenant.gmail.api.messages.list>> | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        listResult = await Promise.race([
+          tenant.gmail.api.messages.list({
+            maxResults: 50,
+            pageToken,
+            q,
+          }),
+          timeout(GMAIL_LIST_TIMEOUT, "messages.list"),
+        ]);
+        break;
+      } catch (err) {
+        if (attempt === 0) {
+          console.warn(`[sync] messages.list attempt 1 failed, retrying...`);
+          await new Promise((r) => setTimeout(r, 2000));
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (!listResult) break;
 
     const messages = (listResult as { messages?: Array<{ id?: string }> }).messages ?? [];
     if (messages.length === 0) break;
@@ -61,7 +76,7 @@ export async function syncIncrementalEmails(
         const detailed = await Promise.race([
           tenant.gmail.api.messages.get({
             id: msg.id,
-            format: "metadata",
+            format: "full",
           }),
           timeout(GMAIL_GET_TIMEOUT, "messages.get"),
         ]);

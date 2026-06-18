@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ThreadView } from "@/components/inbox/thread-view";
 import { useEmailDetail } from "@/hooks/use-emails";
@@ -89,6 +90,36 @@ export default function EmailDetailPage() {
     }
   };
 
+  const handleSpam = async () => {
+    if (!email) return;
+    try {
+      await fetch(`/api/emails/${email.id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "spam" }),
+      });
+      toast.success("Reported as spam");
+      router.push("/dashboard/inbox");
+    } catch {
+      toast.error("Failed to report spam");
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!email) return;
+    try {
+      await fetch(`/api/emails/${email.id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore" }),
+      });
+      toast.success("Restored to inbox");
+      router.push("/dashboard/inbox");
+    } catch {
+      toast.error("Failed to restore");
+    }
+  };
+
   const handleReply = (e: Email) => {
     router.push(`/dashboard/compose?mode=reply&replyToId=${e.id}`);
   };
@@ -156,6 +187,8 @@ export default function EmailDetailPage() {
           onForward={handleForward}
           onArchive={handleArchive}
           onDelete={handleDelete}
+          onSpam={handleSpam}
+          onRestore={handleRestore}
         />
       </div>
     </div>

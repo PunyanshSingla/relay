@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { corsair, ensureCorsairSetup } from "@/lib/corsair";
 import type { Email, Priority, Category } from "@/types/email";
 
 const DB_FIELDS = {
@@ -60,6 +61,68 @@ export async function GET(
       return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
 
+    // If bodyHtml is missing, fetch full email from Gmail on-demand
+    let bodyHtml = dbEmail.bodyHtml ?? undefined;
+    let body = dbEmail.body;
+    if (!bodyHtml && !body) {
+      try {
+        await ensureCorsairSetup();
+        const tenant = corsair.withTenant(session.user.id);
+        const full = await tenant.gmail.api.messages.get({
+          id: dbEmail.gmailId,
+          format: "full",
+        });
+
+        const payload = full.payload as Record<string, unknown> | undefined;
+        const parts = payload?.parts as Array<{
+          mimeType?: string;
+          body?: { data?: string };
+        }> | undefined;
+
+        // Extract body
+        const mainBody = payload?.body as { data?: string } | undefined;
+        if (mainBody?.data) {
+          body = Buffer.from(mainBody.data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
+        } else if (parts) {
+          const textPart = parts.find((p) => p.mimeType === "text/plain");
+          if (textPart?.body?.data) {
+            body = Buffer.from(textPart.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
+          }
+        }
+
+        // Extract HTML body
+        if (parts) {
+          for (const part of parts) {
+            if (part.mimeType === "text/html" && part.body?.data) {
+              bodyHtml = Buffer.from(part.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
+              break;
+            }
+            if (part.mimeType === "multipart/alternative") {
+              const subParts = (part as Record<string, unknown>).parts as Array<{
+                mimeType?: string;
+                body?: { data?: string };
+              }> | undefined;
+              const html = subParts?.find((p) => p.mimeType === "text/html");
+              if (html?.body?.data) {
+                bodyHtml = Buffer.from(html.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
+                break;
+              }
+            }
+          }
+        }
+
+        // Cache in DB for next time
+        if (body || bodyHtml) {
+          await prisma.email.update({
+            where: { id },
+            data: { body: body || "", bodyHtml: bodyHtml || null },
+          }).catch(() => {});
+        }
+      } catch (err) {
+        console.error("[email] Failed to fetch full body from Gmail:", err);
+      }
+    }
+
     const email: Email = {
       id: dbEmail.id,
       from: { name: dbEmail.fromName || dbEmail.from, email: dbEmail.from },
@@ -67,8 +130,8 @@ export async function GET(
       cc: dbEmail.ccText ? parseAddresses(dbEmail.ccText) : undefined,
       subject: dbEmail.subject,
       preview: dbEmail.snippet || "",
-      body: dbEmail.body,
-      bodyHtml: dbEmail.bodyHtml ?? undefined,
+      body: body || dbEmail.body,
+      bodyHtml: bodyHtml ?? undefined,
       timestamp: dbEmail.timestamp,
       read: dbEmail.read,
       starred: dbEmail.starred,

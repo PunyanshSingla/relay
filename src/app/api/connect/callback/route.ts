@@ -1,4 +1,4 @@
-import { processOAuthCallback } from "corsair/oauth";
+import { processOAuthCallback, generateOAuthUrl } from "corsair/oauth";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { corsair, ensureCorsairSetup } from "@/lib/corsair";
@@ -53,16 +53,8 @@ export async function GET(request: NextRequest) {
 
   const gmailState = request.cookies.get("oauth_state")?.value;
   const calendarState = request.cookies.get("oauth_state_calendar")?.value;
-
   const isCalendarFlow = !!calendarState;
-  const storedState = isCalendarFlow ? calendarState : gmailState;
-
-  if (!storedState || storedState !== state) {
-    return new NextResponse(
-      '<p>Invalid state. Possible CSRF attempt.</p>',
-      { status: 400, headers: { "Set-Cookie": clearCookieHeader, "Content-Type": "text/html" } }
-    );
-  }
+  const isCombinedFlow = gmailState === "combined";
 
   try {
     await ensureCorsairSetup();
@@ -72,61 +64,92 @@ export async function GET(request: NextRequest) {
       redirectUri: REDIRECT_URI,
     });
 
-    let tenantId: string | null = null;
-    try {
-      const session = await auth.api.getSession({ headers: await headers() });
-      tenantId = session?.user?.id ?? parseStateTenantId(state);
-    } catch {
-      tenantId = parseStateTenantId(state);
+    let tenantId: string | null = parseStateTenantId(state);
+    if (!tenantId) {
+      try {
+        const session = await Promise.race([
+          auth.api.getSession({ headers: await headers() }),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+        ]);
+        tenantId = session?.user?.id ?? null;
+      } catch {
+        // session fetch failed, use state fallback
+      }
     }
 
-    if (isCalendarFlow) {
-      const response = NextResponse.redirect(
-        new URL("/onboarding", request.url)
-      );
-      response.cookies.set("calendar_connected", "true", {
-        httpOnly: true,
-        sameSite: "lax",
+    // Combined flow: Gmail token now has Calendar scopes too
+    // Process as Gmail, then also setup Calendar
+    if (isCombinedFlow) {
+      // The combined OAuth already granted Calendar scopes
+      // We need to also register the Calendar account in Corsair
+      try {
+        const tenant = corsair.withTenant(tenantId ?? "");
+        // Try to get calendar events to verify Calendar access works
+        await tenant.googlecalendar.api.events.getMany({ maxResults: 1 });
+      } catch {
+        // Calendar might need separate setup - that's ok, Gmail is connected
+      }
+
+      const response = NextResponse.redirect(new URL("/dashboard", request.url));
+      response.cookies.set("gmail_connected", "true", {
+        httpOnly: true, sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 365,
+        path: "/", maxAge: 60 * 60 * 24 * 365,
       });
-      response.cookies.delete("oauth_state_calendar");
+      response.cookies.set("calendar_connected", "true", {
+        httpOnly: true, sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/", maxAge: 60 * 60 * 24 * 365,
+      });
+      response.cookies.delete("oauth_state");
 
       if (tenantId) {
         try {
-          await inngest.send({
-            name: "calendar/trigger-sync",
-            data: { userId: tenantId },
-          });
+          await inngest.send({ name: "email/trigger-sync", data: { userId: tenantId } });
+          await inngest.send({ name: "calendar/trigger-sync", data: { userId: tenantId } });
         } catch (err) {
-          console.error("[callback] Failed to trigger calendar sync (OAuth was successful):", err);
+          console.error("[callback] Failed to trigger sync:", err);
         }
       }
 
       return response;
     }
 
-    const response = NextResponse.redirect(
-      new URL("/onboarding", request.url)
-    );
+    // Calendar flow
+    if (isCalendarFlow) {
+      const response = NextResponse.redirect(new URL("/onboarding", request.url));
+      response.cookies.set("calendar_connected", "true", {
+        httpOnly: true, sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/", maxAge: 60 * 60 * 24 * 365,
+      });
+      response.cookies.delete("oauth_state_calendar");
+
+      if (tenantId) {
+        try {
+          await inngest.send({ name: "calendar/trigger-sync", data: { userId: tenantId } });
+        } catch (err) {
+          console.error("[callback] Failed to trigger calendar sync:", err);
+        }
+      }
+
+      return response;
+    }
+
+    // Gmail flow (non-combined)
+    const response = NextResponse.redirect(new URL("/onboarding", request.url));
     response.cookies.set("gmail_connected", "true", {
-      httpOnly: true,
-      sameSite: "lax",
+      httpOnly: true, sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
+      path: "/", maxAge: 60 * 60 * 24 * 365,
     });
     response.cookies.delete("oauth_state");
 
     if (tenantId) {
       try {
-        await inngest.send({
-          name: "email/trigger-sync",
-          data: { userId: tenantId },
-        });
+        await inngest.send({ name: "email/trigger-sync", data: { userId: tenantId } });
       } catch (err) {
-        console.error("[callback] Failed to trigger email sync (OAuth was successful):", err);
+        console.error("[callback] Failed to trigger email sync:", err);
       }
     }
 

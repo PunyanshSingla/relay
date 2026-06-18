@@ -9,6 +9,7 @@ import {
   Star,
   MoreHorizontal,
   Paperclip,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -66,26 +67,25 @@ interface ThreadViewProps {
   onForward?: (email: Email) => void;
   onArchive?: () => void;
   onDelete?: () => void;
+  onSpam?: () => void;
+  onRestore?: () => void;
 }
 
-export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward, onArchive, onDelete }: ThreadViewProps) {
+export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward, onArchive, onDelete, onSpam, onRestore }: ThreadViewProps) {
   const avatarColor = getAvatarColor(email.from.name);
   const priorityColor = PRIORITY_COLORS[email.priority];
   const categoryConfig = CATEGORY_CONFIG[email.category];
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [replies, setReplies] = useState<Email["replies"]>(email.replies);
-  const [repliesLoading, setRepliesLoading] = useState(false);
+  const [replyMode, setReplyMode] = useState<"short" | "professional" | "friendly" | "generate">("professional");
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    if (email.replies.length > 0) return;
-    setRepliesLoading(true);
-    fetch(`/api/emails/${email.id}/replies`)
-      .then((r) => r.json())
-      .then((data) => setReplies(data.replies ?? []))
-      .catch(() => {})
-      .finally(() => setRepliesLoading(false));
-  }, [email.id, email.replies.length]);
-  const [replyMode, setReplyMode] = useState<"short" | "professional" | "friendly" | "generate">("professional");
+    const check = () => setIsDark(document.documentElement.classList.contains("dark"));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   const handleIframeLoad = useCallback(() => {
     const iframe = iframeRef.current;
@@ -94,7 +94,7 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
       iframe.style.height = Math.max(height + 2, 200) + "px";
     }
   }, []);
-
+  console.log("ThreadView rendered with email:", email);
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -174,23 +174,15 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
         {email.bodyHtml ? (
           <iframe
             ref={iframeRef}
-            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light dark;}body{margin:0;padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1a1a1a;background:white;}a{color:#0066cc;text-decoration:underline;}table{border-collapse:separate;}td,th{padding:4px 8px;}blockquote{border-left:3px solid #ddd;padding-left:12px;margin:0 0 0 0;color:#555;}@media(prefers-color-scheme:dark){body{color:#e5e5e5;background:#1a1a1a;}a{color:#60a5fa;}blockquote{border-left-color:#444;color:#999;}img{opacity:0.9;}}</style></head><body>${DOMPurify.sanitize(email.bodyHtml, { ADD_TAGS: ["style"], ADD_ATTR: ["target", "style"] })}</body></html>`}
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:${isDark ? "#e5e5e5" : "#1a1a1a"};background:${isDark ? "#1e1e1e" : "#fff"};}a{color:${isDark ? "#60a5fa" : "#0066cc"};}table{border-collapse:separate;}td,th{padding:4px 8px;${isDark ? "border-color:#333;" : ""}}blockquote{border-left:3px solid ${isDark ? "#444" : "#ddd"};padding-left:12px;margin:0;color:${isDark ? "#999" : "#555"};}img{max-width:100%;height:auto;${isDark ? "opacity:0.9;filter:brightness(0.9);" : ""}}</style></head><body>${DOMPurify.sanitize(email.bodyHtml, { ADD_TAGS: ["style"], ADD_ATTR: ["target", "style"] })}</body></html>`}
             sandbox="allow-same-origin"
-            className="w-full border-0 bg-background"
-            style={{ minHeight: "200px" }}
+            className="w-full border-0"
+            style={{ minHeight: "400px" }}
             onLoad={handleIframeLoad}
           />
-        ) : email.body?.trim() ? (
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-            {email.body}
-          </div>
-        ) : email.preview ? (
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground italic">
-            {email.preview}
-          </div>
         ) : (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <p className="text-sm">No preview available</p>
+            <p className="text-sm">{email.preview || "No preview available"}</p>
           </div>
         )}
 
@@ -219,22 +211,10 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
         )}
 
         {/* Thread replies */}
-        {repliesLoading && (
-          <div className="mt-6 space-y-3">
-            <Separator />
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="pl-4 border-l-2 border-border space-y-2">
-                <div className="h-3 w-32 bg-muted rounded animate-pulse" />
-                <div className="h-3 w-full bg-muted rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {replies.length > 0 && (
+        {email.replies.length > 0 && (
           <div className="mt-6 space-y-4">
             <Separator />
-            {replies.map((reply) => (
+            {email.replies.map((reply) => (
               <div key={reply.id} className="pl-4 border-l-2 border-border">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-medium">{reply.from.name}</span>
@@ -305,6 +285,28 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
           </TooltipTrigger>
           <TooltipContent>Delete</TooltipContent>
         </Tooltip>
+        {onSpam && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={onSpam} className="text-destructive hover:text-destructive">
+                <AlertTriangle className="size-4 mr-1" />
+                Spam
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Report Spam</TooltipContent>
+          </Tooltip>
+        )}
+        {onRestore && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={onRestore}>
+                <Archive className="size-4 mr-1" />
+                Restore
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Restore from Trash</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

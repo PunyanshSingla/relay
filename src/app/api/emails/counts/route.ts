@@ -11,12 +11,16 @@ export async function GET() {
 
   const userId = session.user.id;
 
+  const notTrashSpam = {
+    NOT: [{ labels: { has: "TRASH" } }, { labels: { has: "SPAM" } }],
+  };
+
   const [total, unread, p1, p2, p3] = await Promise.all([
-    prisma.email.count({ where: { userId } }),
-    prisma.email.count({ where: { userId, read: false } }),
-    prisma.email.count({ where: { userId, priority: "P1" } }),
-    prisma.email.count({ where: { userId, priority: "P2" } }),
-    prisma.email.count({ where: { userId, priority: "P3" } }),
+    prisma.email.count({ where: { userId, ...notTrashSpam } }),
+    prisma.email.count({ where: { userId, read: false, ...notTrashSpam } }),
+    prisma.email.count({ where: { userId, priority: "P1", NOT: [{ labels: { has: "TRASH" } }] } }),
+    prisma.email.count({ where: { userId, priority: "P2", NOT: [{ labels: { has: "TRASH" } }] } }),
+    prisma.email.count({ where: { userId, priority: "P3", NOT: [{ labels: { has: "TRASH" } }] } }),
   ]);
 
   return NextResponse.json({ total, unread, P1: p1, P2: p2, P3: p3 });

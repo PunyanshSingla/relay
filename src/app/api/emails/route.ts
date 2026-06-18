@@ -24,16 +24,33 @@ export async function GET(request: Request) {
       where.read = false;
     } else if (filter === "P1" || filter === "P2" || filter === "P3") {
       where.priority = filter;
+    } else if (filter === "trash") {
+      where.labels = { has: "TRASH" };
+    } else if (filter === "spam") {
+      where.labels = { has: "SPAM" };
+    } else if (filter === "sent") {
+      where.isSent = true;
+    } else if (filter === "starred") {
+      where.starred = true;
+    } else if (filter === "all") {
+      // Exclude trash and spam from "all" view
+      where.NOT = [
+        { labels: { has: "TRASH" } },
+        { labels: { has: "SPAM" } },
+      ];
     }
 
     if (sender) {
       where.from = { contains: sender, mode: "insensitive" };
     }
 
+    const isPriorityFilter = filter === "P1" || filter === "P2" || filter === "P3";
+    const pageSize = isPriorityFilter ? 500 : PAGE_SIZE;
+
     const query: Record<string, unknown> = {
       where,
       orderBy: [{ aiClassified: "asc" }, { priority: "asc" }, { timestamp: "desc" }],
-      take: PAGE_SIZE + 1,
+      take: pageSize + 1,
     };
 
     if (cursor) {
@@ -43,15 +60,21 @@ export async function GET(request: Request) {
 
     const dbEmails = await prisma.email.findMany(query as Parameters<typeof prisma.email.findMany>[0]);
 
-    const hasMore = dbEmails.length > PAGE_SIZE;
-    const items = hasMore ? dbEmails.slice(0, PAGE_SIZE) : dbEmails;
+    const hasMore = dbEmails.length > pageSize;
+    const items = hasMore ? dbEmails.slice(0, pageSize) : dbEmails;
 
-    const [total, unread, p1, p2, p3] = await Promise.all([
-      prisma.email.count({ where: { userId: session.user.id } }),
-      prisma.email.count({ where: { userId: session.user.id, read: false } }),
-      prisma.email.count({ where: { userId: session.user.id, priority: "P1" } }),
-      prisma.email.count({ where: { userId: session.user.id, priority: "P2" } }),
-      prisma.email.count({ where: { userId: session.user.id, priority: "P3" } }),
+    const baseWhere = { userId: session.user.id };
+
+    const [total, unread, p1, p2, p3, trash, spam, sent, starred] = await Promise.all([
+      prisma.email.count({ where: { ...baseWhere, NOT: [{ labels: { has: "TRASH" } }, { labels: { has: "SPAM" } }] } }),
+      prisma.email.count({ where: { ...baseWhere, read: false, NOT: [{ labels: { has: "TRASH" } }, { labels: { has: "SPAM" } }] } }),
+      prisma.email.count({ where: { ...baseWhere, priority: "P1", NOT: [{ labels: { has: "TRASH" } }] } }),
+      prisma.email.count({ where: { ...baseWhere, priority: "P2", NOT: [{ labels: { has: "TRASH" } }] } }),
+      prisma.email.count({ where: { ...baseWhere, priority: "P3", NOT: [{ labels: { has: "TRASH" } }] } }),
+      prisma.email.count({ where: { ...baseWhere, labels: { has: "TRASH" } } }),
+      prisma.email.count({ where: { ...baseWhere, labels: { has: "SPAM" } } }),
+      prisma.email.count({ where: { ...baseWhere, isSent: true } }),
+      prisma.email.count({ where: { ...baseWhere, starred: true, NOT: [{ labels: { has: "TRASH" } }] } }),
     ]);
 
     const emails: Email[] = items.map((e) => ({
@@ -79,7 +102,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       emails,
       nextCursor: hasMore ? items[items.length - 1].id : null,
-      counts: { total, unread, P1: p1, P2: p2, P3: p3 },
+      counts: { total, unread, P1: p1, P2: p2, P3: p3, trash, spam, sent, starred },
     });
   } catch (error) {
     console.error("Failed to fetch emails:", error);

@@ -17,14 +17,22 @@ import { usePriorityEmailList } from "@/hooks/use-priority-emails";
 import { useEmailCounts } from "@/hooks/use-emails";
 import type { Email, FilterOption } from "@/types/email";
 
-type FilterId = FilterOption["id"];
+type FilterId = "all" | "unread" | "P1" | "P2" | "P3" | "trash" | "sent" | "spam" | "starred";
 
 export default function InboxPage() {
   const router = useRouter();
   const { syncState } = useSyncStatus();
-  const [activeFilter, setActiveFilter] = useState<FilterId>("all");
-
   const searchParams = useSearchParams();
+  const urlFilter = searchParams.get("filter") as FilterId | null;
+  const [activeFilter, setActiveFilter] = useState<FilterId>(urlFilter || "all");
+
+  // Sync filter from URL
+  useEffect(() => {
+    if (urlFilter && urlFilter !== activeFilter) {
+      setActiveFilter(urlFilter);
+    }
+  }, [urlFilter]);
+
   const sender = searchParams.get("sender") ?? undefined;
 
   const {
@@ -39,17 +47,32 @@ export default function InboxPage() {
   const { counts: polledCounts } = useEmailCounts(syncState?.phase);
   const counts = polledCounts ?? priorityCounts;
 
-  const filters: FilterOption[] = [
-    { id: "all", label: "All", count: counts?.total ?? emails.length },
-    { id: "unread", label: "Unread", count: counts?.unread ?? 0 },
-    { id: "P1", label: "P1 Critical", count: counts?.P1 ?? 0 },
-    { id: "P2", label: "P2 Important", count: counts?.P2 ?? 0 },
-    { id: "P3", label: "P3 Low", count: counts?.P3 ?? 0 },
-  ];
+  const isSpecialFilter = ["trash", "sent", "spam", "starred"].includes(activeFilter);
+
+  const filters: { id: FilterId; label: string; count?: number }[] = isSpecialFilter
+    ? [
+        { id: "all", label: "All", count: counts?.total },
+        { id: "unread", label: "Unread", count: counts?.unread },
+        { id: "P1", label: "P1", count: counts?.P1 },
+        { id: "P2", label: "P2", count: counts?.P2 },
+        { id: "P3", label: "P3", count: counts?.P3 },
+      ]
+    : [
+        { id: "all", label: "All", count: counts?.total ?? emails.length },
+        { id: "unread", label: "Unread", count: counts?.unread ?? 0 },
+        { id: "P1", label: "P1 Critical", count: counts?.P1 ?? 0 },
+        { id: "P2", label: "P2 Important", count: counts?.P2 ?? 0 },
+        { id: "P3", label: "P3 Low", count: counts?.P3 ?? 0 },
+      ];
 
   const handleFilterChange = useCallback((filter: FilterId) => {
     setActiveFilter(filter);
-  }, []);
+    if (filter === "all") {
+      router.push("/dashboard/inbox");
+    } else {
+      router.push(`/dashboard/inbox?filter=${filter}`);
+    }
+  }, [router]);
 
   const [syncing, setSyncing] = useState(false);
 
@@ -266,8 +289,21 @@ export default function InboxPage() {
           <PriorityEmailList
             emails={emails}
             loadingGroups={loadingGroups}
+            activeFilter={activeFilter}
             onSelect={(id) => router.push(`/dashboard/inbox/${id}`)}
             onToggleStar={handleToggleStar}
+            onEmptyTrash={async () => {
+              if (!confirm("Permanently delete all emails in trash?")) return;
+              try {
+                const res = await fetch("/api/emails/empty-trash", { method: "POST" });
+                if (res.ok) {
+                  toast.success("Trash emptied");
+                  mutate();
+                }
+              } catch {
+                toast.error("Failed to empty trash");
+              }
+            }}
             loading={loading}
             syncState={syncState}
           />
@@ -294,15 +330,19 @@ export default function InboxPage() {
 function PriorityEmailList({
   emails,
   loadingGroups,
+  activeFilter,
   onSelect,
   onToggleStar,
+  onEmptyTrash,
   loading,
   syncState,
 }: {
   emails: Email[];
   loadingGroups: { p1: boolean; p2: boolean; p3: boolean };
+  activeFilter: FilterId;
   onSelect: (id: string) => void;
   onToggleStar: (id: string) => void;
+  onEmptyTrash: () => void;
   loading: boolean;
   syncState?: { phase: string } | null;
 }) {
@@ -365,7 +405,25 @@ function PriorityEmailList({
 
         {emails.length === 0 && !loading && !isSyncing && (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <p className="text-sm">No emails match this filter</p>
+            <p className="text-sm">
+              {activeFilter === "trash" && "Trash is empty"}
+              {activeFilter === "sent" && "No sent emails yet"}
+              {activeFilter === "spam" && "No spam emails"}
+              {activeFilter === "starred" && "No starred emails"}
+              {activeFilter === "all" && "No emails match this filter"}
+              {activeFilter === "unread" && "All caught up! No unread emails"}
+              {!["trash", "sent", "spam", "starred", "all", "unread"].includes(activeFilter) && "No emails match this filter"}
+            </p>
+            {activeFilter === "trash" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 text-destructive"
+                onClick={onEmptyTrash}
+              >
+                Empty Trash
+              </Button>
+            )}
           </div>
         )}
       </div>
