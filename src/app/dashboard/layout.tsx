@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { TopBar } from "@/components/dashboard/top-bar";
 import { CommandPalette } from "@/components/dashboard/command-palette";
@@ -25,10 +25,12 @@ export default function DashboardLayout({
       <SyncStatusProvider>
         <div className="flex h-screen overflow-hidden bg-background">
           {/* Sidebar */}
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-          />
+          <Suspense fallback={<div className="w-64 h-full bg-sidebar border-r border-sidebar-border" />}>
+            <Sidebar
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+            />
+          </Suspense>
 
           {/* Main content area */}
           <div className="flex flex-1 flex-col overflow-hidden">

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import {
   Inbox,
   Calendar,
@@ -12,7 +11,6 @@ import {
   Sun,
   Mail,
   AlertTriangle,
-  RefreshCw,
   Bot,
   Check,
   X,
@@ -20,8 +18,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import useSWR from "swr";
 import { formatDistanceToNow } from "@/lib/format-date";
 import { ACTION_LABELS, type ActionType } from "@/types/automation";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 interface Brief {
   summary: string;
@@ -59,63 +60,20 @@ interface Automation {
 }
 
 export default function DashboardPage() {
-  const [brief, setBrief] = useState<Brief | null>(null);
-  const [briefLoading, setBriefLoading] = useState(true);
-  const [counts, setCounts] = useState<EmailCount | null>(null);
-  const [recentEmails, setRecentEmails] = useState<RecentEmail[]>([]);
-  const [emailsLoading, setEmailsLoading] = useState(true);
-  const [upcomingEvents, setUpcomingEvents] = useState<Array<{
-    id?: string;
-    summary?: string;
-    start?: { dateTime?: string; date?: string };
-    location?: string;
-    status?: string;
-  }>>([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
-  const [followUpCount, setFollowUpCount] = useState(0);
-  const [automations, setAutomations] = useState<Automation[]>([]);
+  const { data: briefData, isLoading: briefLoading } = useSWR("/api/brief", fetcher, { refreshInterval: 300000 });
+  const { data: counts } = useSWR<EmailCount>("/api/emails/counts", fetcher, { refreshInterval: 30000 });
+  const { data: emailsData, isLoading: emailsLoading } = useSWR("/api/emails?filter=unread", fetcher);
+  const { data: eventsData, isLoading: eventsLoading } = useSWR("/api/calendar/events?limit=3", fetcher);
+  const { data: followUpData } = useSWR("/api/follow-ups?status=pending", fetcher);
+  const { data: automationsData, mutate: mutateAutomations } = useSWR("/api/automations", fetcher);
 
-  useEffect(() => {
-    fetch("/api/brief")
-      .then((r) => r.json())
-      .then((data) => setBrief(data.brief))
-      .catch(() => {})
-      .finally(() => setBriefLoading(false));
-
-    fetch("/api/emails/counts")
-      .then((r) => r.json())
-      .then((data) => setCounts(data))
-      .catch(() => {});
-
-    fetch("/api/emails?filter=unread")
-      .then((r) => r.json())
-      .then((data) => {
-        const emails = (data.emails ?? [])
-          .sort((a: RecentEmail, b: RecentEmail) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-          .slice(0, 5);
-        setRecentEmails(emails);
-      })
-      .catch(() => {})
-      .finally(() => setEmailsLoading(false));
-
-    fetch("/api/calendar/events?limit=3")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.events) setUpcomingEvents(data.events);
-      })
-      .catch(() => {})
-      .finally(() => setEventsLoading(false));
-
-    fetch("/api/follow-ups?status=pending")
-      .then((r) => r.json())
-      .then((data) => setFollowUpCount(data.counts?.pending ?? 0))
-      .catch(() => {});
-
-    fetch("/api/automations")
-      .then((r) => r.json())
-      .then((data) => setAutomations(data.automations ?? []))
-      .catch(() => {});
-  }, []);
+  const brief = briefData?.brief as Brief | null;
+  const recentEmails: RecentEmail[] = (emailsData?.emails ?? [])
+    .sort((a: RecentEmail, b: RecentEmail) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 5);
+  const upcomingEvents = eventsData?.events ?? [];
+  const followUpCount = followUpData?.counts?.pending ?? 0;
+  const automations: Automation[] = automationsData?.automations ?? [];
 
   const statusColors: Record<string, string> = {
     confirmed: "bg-emerald-500",
@@ -159,25 +117,21 @@ export default function DashboardPage() {
   ];
 
   const handleAcceptAutomation = async (id: string) => {
-    setAutomations((prev) => prev.filter((a) => a.id !== id));
-    try {
-      await fetch(`/api/automations/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "accepted" }),
-      });
-    } catch {}
+    await fetch(`/api/automations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "accepted" }),
+    });
+    mutateAutomations();
   };
 
   const handleDismissAutomation = async (id: string) => {
-    setAutomations((prev) => prev.filter((a) => a.id !== id));
-    try {
-      await fetch(`/api/automations/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "dismissed" }),
-      });
-    } catch {}
+    await fetch(`/api/automations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "dismissed" }),
+    });
+    mutateAutomations();
   };
 
   return (

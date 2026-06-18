@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -20,6 +20,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "@/lib/format-date";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 interface ContactDetail {
   id: string;
@@ -157,41 +160,16 @@ export default function ContactDetailPage() {
   const router = useRouter();
   const contactId = params.id as string;
 
-  const [contact, setContact] = useState<ContactDetail | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recentEmails, setRecentEmails] = useState<EmailSummary[]>([]);
-  const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
-  const [timeline, setTimeline] = useState<TimelineItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [togglingVip, setTogglingVip] = useState(false);
 
-  const fetchContact = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/contacts/${contactId}`);
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to load contact");
-      }
-      const data = await res.json();
-      setContact(data.contact);
-      setStats(data.stats);
-      setRecentEmails(data.recentEmails);
-      setMeetings(data.meetings);
-      setTimeline(data.activityTimeline);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load contact");
-    } finally {
-      setLoading(false);
-    }
-  }, [contactId]);
+  const { data, error, isLoading, mutate } = useSWR(`/api/contacts/${contactId}`, fetcher);
 
-  useEffect(() => {
-    fetchContact();
-  }, [fetchContact]);
+  const contact = data?.contact as ContactDetail | undefined;
+  const stats = data?.stats as Stats | undefined;
+  const recentEmails: EmailSummary[] = data?.recentEmails ?? [];
+  const meetings: MeetingSummary[] = data?.meetings ?? [];
+  const timeline: TimelineItem[] = data?.activityTimeline ?? [];
 
   const toggleVip = async () => {
     if (!contact || togglingVip) return;
@@ -202,15 +180,14 @@ export default function ContactDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vip: !contact.vip }),
       });
-      setContact({ ...contact, vip: !contact.vip });
+      mutate();
+      setTogglingVip(false);
     } catch {
-      // silent
-    } finally {
       setTogglingVip(false);
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -221,7 +198,7 @@ export default function ContactDetailPage() {
   if (error || !contact) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <p className="text-sm text-muted-foreground">{error || "Contact not found"}</p>
+        <p className="text-sm text-muted-foreground">{error ? "Failed to load contact" : "Contact not found"}</p>
         <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/contacts")}>
           <ArrowLeft className="size-4 mr-1" />
           Back to Contacts
@@ -345,6 +322,7 @@ export default function ContactDetailPage() {
       <div className="flex items-center gap-0 border-b border-border bg-card px-6">
         {tabs.map((tab) => (
           <button
+            type="button"
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
@@ -487,8 +465,11 @@ function EmailsTab({ emails, router }: { emails: EmailSummary[]; router: ReturnT
         {emails.map((email) => (
           <div
             key={email.id}
+            role="button"
+            tabIndex={0}
             className="flex items-start gap-3 px-6 py-3 hover:bg-muted/30 cursor-pointer transition-colors"
             onClick={() => router.push(`/dashboard/inbox?thread=${email.id}`)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/dashboard/inbox?thread=${email.id}`); } }}
           >
             <div className={cn(
               "size-2 rounded-full mt-2 shrink-0",
@@ -596,7 +577,7 @@ function ActivityTab({ timeline }: { timeline: TimelineItem[] }) {
 
           <div className="space-y-4">
             {timeline.map((item, i) => (
-              <div key={i} className="flex gap-3 relative">
+              <div key={`${item.date}-${item.title}`} className="flex gap-3 relative">
                 {/* Icon */}
                 <div
                   className={cn(

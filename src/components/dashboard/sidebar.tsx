@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import {
   Inbox,
   Calendar,
@@ -35,41 +36,21 @@ interface NavItem {
   connected?: boolean;
 }
 
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
 function useUnreadCount() {
-  const [count, setCount] = useState<number | null>(null);
-  useEffect(() => {
-    fetch("/api/emails/counts")
-      .then((r) => r.json())
-      .then((data) => {
-        if (typeof data.unread === "number") setCount(data.unread);
-      })
-      .catch(() => {});
-  }, []);
-  return count;
+  const { data } = useSWR("/api/emails/counts", fetcher, { refreshInterval: 30000 });
+  return typeof data?.unread === "number" ? data.unread : null;
 }
 
 function useLabels() {
-  const [labels, setLabels] = useState<{ id: string; name: string; unread: number }[]>([]);
-  useEffect(() => {
-    fetch("/api/labels")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.labels) setLabels(data.labels);
-      })
-      .catch(() => {});
-  }, []);
-  return labels;
+  const { data } = useSWR("/api/labels", fetcher, { refreshInterval: 60000 });
+  return (data?.labels as { id: string; name: string; unread: number }[]) ?? [];
 }
 
 function useConnectionStatus() {
-  const [status, setStatus] = useState<{ gmail: boolean; calendar: boolean } | null>(null);
-  useEffect(() => {
-    fetch("/api/connect/status")
-      .then((r) => r.json())
-      .then(setStatus)
-      .catch(() => {});
-  }, []);
-  return status;
+  const { data } = useSWR("/api/connect/status", fetcher, { refreshInterval: 60000 });
+  return (data as { gmail: boolean; calendar: boolean } | null) ?? null;
 }
 
 const aiItems: NavItem[] = [
@@ -274,6 +255,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
 
       {/* Edge handle - visible on hover, positioned on right border */}
       <button
+        type="button"
         onClick={onToggleCollapse}
         className="absolute top-1/2 -right-3 z-10 flex h-10 w-3 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground opacity-0 transition-all hover:opacity-100 hover:w-5 hover:shadow-sm"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}

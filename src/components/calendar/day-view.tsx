@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import type { CalendarEvent } from "./calendar-types";
 import { TimeGrid } from "./time-grid";
 import { indexEventsByDay, dayKey, isAllDayEvent, getBarColor, getEventDateSpan, isSameDay } from "./calendar-utils";
@@ -14,7 +13,7 @@ interface DayViewProps {
 
 export function DayView({ events, currentDate, onEventClick, onTimeSlotClick }: DayViewProps) {
   const key = dayKey(currentDate);
-  const { allDayByDay, timedByDay } = useMemo(() => indexEventsByDay(events), [events]);
+  const { allDayByDay, timedByDay } = indexEventsByDay(events);
   const dayAllDay = allDayByDay.get(key) ?? [];
 
   return (

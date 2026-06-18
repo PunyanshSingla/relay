@@ -12,40 +12,34 @@ import {
 import { cn } from "@/lib/utils";
 import { useToolbar } from "./toolbar-provider";
 
-const BulletListToolbar = React.forwardRef<HTMLButtonElement, ButtonProps>(
-	({ className, onClick, children, ...props }, ref) => {
-		const { editor } = useToolbar();
+export function BulletListToolbar({ className, onClick, children, ref, ...props }: ButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
+	const { editor } = useToolbar();
 
-		return (
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className={cn(
-							"h-8 w-8 p-0 sm:h-9 sm:w-9",
-							editor?.isActive("bulletList") && "toolbar-btn-active",
-							className,
-						)}
-						onClick={(e) => {
-							editor?.chain().focus().toggleBulletList().run();
-							onClick?.(e);
-						}}
-						disabled={!editor?.can().chain().focus().toggleBulletList().run()}
-						ref={ref}
-						{...props}
-					>
-						{children ?? <List className="h-4 w-4" />}
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>
-					<span>Bullet list</span>
-				</TooltipContent>
-			</Tooltip>
-		);
-	},
-);
-
-BulletListToolbar.displayName = "BulletListToolbar";
-
-export { BulletListToolbar };
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button
+					variant="ghost"
+					size="icon"
+					className={cn(
+						"h-8 w-8 p-0 sm:h-9 sm:w-9",
+						editor?.isActive("bulletList") && "toolbar-btn-active",
+						className,
+					)}
+					onClick={(e) => {
+						editor?.chain().focus().toggleBulletList().run();
+						onClick?.(e);
+					}}
+					disabled={!editor?.can().chain().focus().toggleBulletList().run()}
+					ref={ref}
+					{...props}
+				>
+					{children ?? <List className="h-4 w-4" />}
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>
+				<span>Bullet list</span>
+			</TooltipContent>
+		</Tooltip>
+	);
+}

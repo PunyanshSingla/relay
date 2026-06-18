@@ -49,15 +49,12 @@ export async function GET(
     });
 
     const threadEmails = mapGmailThreadToEmails(thread);
-    const replies = threadEmails
-      .filter((e) => e.id !== dbEmail.gmailId)
-      .map((e) => ({
-        id: e.id,
-        from: e.from,
-        body: e.body,
-        bodyHtml: e.bodyHtml || undefined,
-        timestamp: e.timestamp,
-      }));
+    const replies = [];
+    for (const e of threadEmails) {
+      if (e.id !== dbEmail.gmailId) {
+        replies.push({ id: e.id, from: e.from, body: e.body, bodyHtml: e.bodyHtml || undefined, timestamp: e.timestamp });
+      }
+    }
 
     gmailCacheSet(cacheKey, replies, GMAIL_CACHE_TTL);
 

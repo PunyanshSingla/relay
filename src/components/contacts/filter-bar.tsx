@@ -30,6 +30,7 @@ export function ContactsFilterBar({
     <div className="flex items-center gap-1 border-b border-border bg-card px-4">
       {filters.map((filter) => (
         <button
+          type="button"
           key={filter.id}
           onClick={() => onFilterChange(filter.id)}
           className={cn(
@@ -67,6 +68,7 @@ export function ContactsFilterBar({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search contacts..."
+          aria-label="Search contacts"
           className="bg-transparent text-sm outline-none placeholder:text-muted-foreground w-40"
         />
       </div>

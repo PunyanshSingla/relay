@@ -167,6 +167,7 @@ export default function AiChatPage() {
           const Icon = mode.icon;
           return (
             <button
+              type="button"
               key={mode.id}
               onClick={() => setEnhanceMode(mode.id)}
               className={cn(
@@ -212,6 +213,7 @@ export default function AiChatPage() {
                 const Icon = s.icon;
                 return (
                   <button
+                    type="button"
                     key={s.text}
                     onClick={() => handleSend(s.text)}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

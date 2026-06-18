@@ -57,12 +57,6 @@ export async function GET(
       return NextResponse.json({ error: "Failed to generate summary" }, { status: 500 });
     }
 
-    // Cache in DB
-    await prisma.email.update({
-      where: { id },
-      data: { summary: JSON.stringify(result) },
-    });
-
     return NextResponse.json({ summary: result, cached: false });
   } catch (error) {
     console.error("[email summary] Failed:", error);

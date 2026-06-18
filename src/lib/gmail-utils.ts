@@ -152,7 +152,7 @@ function mapLabelIds(labelIds: string[]): {
   };
 }
 
-export function mapGmailMessageToEmail(message: GmailMessage): Email {
+function mapGmailMessageToEmail(message: GmailMessage): Email {
   const headers = message.payload?.headers;
   const fromRaw = getHeaderValue(headers, "From");
   const toRaw = getHeaderValue(headers, "To");
@@ -201,7 +201,7 @@ export function mapGmailMessageToEmail(message: GmailMessage): Email {
   };
 }
 
-export function getGmailFilterQuery(
+function getGmailFilterQuery(
   filter: "all" | "unread" | "P1" | "P2" | "P3"
 ): string | undefined {
   switch (filter) {

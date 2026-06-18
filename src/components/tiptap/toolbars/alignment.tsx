@@ -87,7 +87,7 @@ export const AlignmentTooolbar = () => {
       >
         {alignmentOptions.map((option, index) => (
           <MobileToolbarItem
-            key={index}
+            key={option.value}
             onClick={() => handleAlign(option.value)}
             active={currentTextAlign() === option.value}
           >
@@ -127,7 +127,7 @@ export const AlignmentTooolbar = () => {
               onSelect={() => {
                 handleAlign(option.value);
               }}
-              key={index}
+              key={option.value}
             >
               <span className="mr-2">{option.icon}</span>
               {option.name}

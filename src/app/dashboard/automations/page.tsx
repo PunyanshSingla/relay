@@ -76,9 +76,9 @@ export default function AutomationsPage() {
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setRules(data.rules);
+      setLoading(false);
     } catch {
       setRules([]);
-    } finally {
       setLoading(false);
     }
   };
@@ -100,8 +100,8 @@ export default function AutomationsPage() {
       setRules((prev) => [data.rule, ...prev]);
       setCreateOpen(false);
       setForm({ name: "", triggerType: "sender_email", triggerValue: "", actionType: "forward_to", actionTarget: "" });
+      setCreating(false);
     } catch {
-    } finally {
       setCreating(false);
     }
   };
@@ -219,8 +219,9 @@ export default function AutomationsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Rule Name</label>
+              <label htmlFor="rule-name" className="text-sm font-medium">Rule Name</label>
               <Input
+                id="rule-name"
                 placeholder="e.g., Forward support emails"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -228,7 +229,7 @@ export default function AutomationsPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">When this happens</label>
+              <label htmlFor="trigger-type" className="text-sm font-medium">When this happens</label>
               <Select
                 value={form.triggerType}
                 onValueChange={(v) => setForm({ ...form, triggerType: v, triggerValue: "" })}
@@ -274,7 +275,7 @@ export default function AutomationsPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Then do this</label>
+              <label htmlFor="action-type" className="text-sm font-medium">Then do this</label>
               <Select
                 value={form.actionType}
                 onValueChange={(v) => setForm({ ...form, actionType: v })}

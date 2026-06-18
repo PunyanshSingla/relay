@@ -24,8 +24,7 @@ import {
 import { useToolbar } from "./toolbar-provider";
 import { getUrlFromString } from "@/lib/tiptap-utils";
 
-const LinkToolbar = React.forwardRef<HTMLButtonElement, ButtonProps>(
-	({ className, ...props }, ref) => {
+const LinkToolbar = ({ className, ref, ...props }: ButtonProps & { ref?: React.Ref<HTMLButtonElement> }) => {
 		const { editor } = useToolbar();
 		const [link, setLink] = React.useState("");
 
@@ -121,9 +120,6 @@ const LinkToolbar = React.forwardRef<HTMLButtonElement, ButtonProps>(
 				</PopoverContent>
 			</Popover>
 		);
-	},
-);
-
-LinkToolbar.displayName = "LinkToolbar";
+};
 
 export { LinkToolbar };

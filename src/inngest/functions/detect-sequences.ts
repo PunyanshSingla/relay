@@ -100,9 +100,10 @@ async function detectUserSequences(userId: string) {
   const results = [];
   for (const [hash, seq] of sequences) {
     if (seq.count >= MIN_OCCURRENCES) {
+      const seqActionSet = new Set(seq.actions);
       const consistency = calculateConsistency(
         [seq.count],
-        actions.filter((a) => seq.actions.includes(a.actionType)).length,
+        actions.filter((a) => seqActionSet.has(a.actionType)).length,
       );
       const recency = calculateRecency(seq.timestamps);
       const avgTimeSaved = seq.actions.reduce(

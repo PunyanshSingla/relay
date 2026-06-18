@@ -31,6 +31,7 @@ export default function ForgotPasswordPage() {
 
       if (resetError) {
         setError(resetError.message || "Failed to send reset link. Please verify your email.");
+        setLoading(false);
         return;
       }
 
@@ -38,7 +39,6 @@ export default function ForgotPasswordPage() {
     } catch (err) {
       console.error("Forgot password unexpected error:", err);
       setError("An unexpected error occurred. Please try again.");
-    } finally {
       setLoading(false);
     }
   };

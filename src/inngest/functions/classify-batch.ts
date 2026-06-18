@@ -45,34 +45,23 @@ export const classifyBatchJob = inngest.createFunction(
 
     // Step 2: Run all heuristics in one batch
     const heuristicResults = await step.run("run-heuristics", async () => {
-      const results: Array<{
-        emailId: string;
-        from: string;
-        fromName: string | null;
-        subject: string;
-        snippet: string | null;
-        labels: string[];
-        matched: boolean;
-        priority: string | null;
-        category: string | null;
-        reason: string | null;
-      }> = [];
-
-      for (const email of unclassified) {
-        const heuristic = await runHeuristics(userId, email.from, email.subject);
-        results.push({
-          emailId: email.id,
-          from: email.from,
-          fromName: email.fromName,
-          subject: email.subject,
-          snippet: email.snippet,
-          labels: email.labels,
-          matched: heuristic?.matched ?? false,
-          priority: heuristic?.priority ?? null,
-          category: heuristic?.category ?? null,
-          reason: heuristic?.reason ?? null,
-        });
-      }
+      const results = await Promise.all(
+        unclassified.map(async (email) => {
+          const heuristic = await runHeuristics(userId, email.from, email.subject);
+          return {
+            emailId: email.id,
+            from: email.from,
+            fromName: email.fromName,
+            subject: email.subject,
+            snippet: email.snippet,
+            labels: email.labels,
+            matched: heuristic?.matched ?? false,
+            priority: heuristic?.priority ?? null,
+            category: heuristic?.category ?? null,
+            reason: heuristic?.reason ?? null,
+          };
+        })
+      );
 
       return results;
     });
@@ -125,24 +114,25 @@ export const classifyBatchJob = inngest.createFunction(
     // Step 5: Apply all LLM results + track contacts in one step
     if (llmResults.length > 0) {
       await step.run("apply-llm-results", async () => {
-        for (const classification of llmResults) {
-          const emailRecord = needsLLM[classification.index];
-          if (!emailRecord) continue;
+        await Promise.all(
+          llmResults.map(async (classification) => {
+            const emailRecord = needsLLM[classification.index];
+            if (!emailRecord) return;
 
-          await prisma.email.update({
-            where: { id: emailRecord.emailId },
-            data: {
-              priority: classification.result.priority,
-              category: classification.result.category,
-              aiClassified: true,
-              aiReason: classification.result.reason,
-              aiAction: classification.result.suggestedAction,
-            },
-          });
+            await prisma.email.update({
+              where: { id: emailRecord.emailId },
+              data: {
+                priority: classification.result.priority,
+                category: classification.result.category,
+                aiClassified: true,
+                aiReason: classification.result.reason,
+                aiAction: classification.result.suggestedAction,
+              },
+            });
 
-          // Track contact after classification
-          await trackContact(userId, emailRecord.from, emailRecord.fromName, emailRecord.subject);
-        }
+            await trackContact(userId, emailRecord.from, emailRecord.fromName, emailRecord.subject);
+          })
+        );
       });
 
       await incrementClassifiedCount(userId, llmResults.length);
@@ -158,9 +148,8 @@ export const classifyBatchJob = inngest.createFunction(
       console.log(`[classify-batch] Batch missed ${stillUnclassified.length} emails, classifying individually`);
 
       const fallbackResult = await step.run("fallback-individual-classify", async () => {
-        let successCount = 0;
-        for (const email of stillUnclassified) {
-          try {
+        const results = await Promise.allSettled(
+          stillUnclassified.map(async (email) => {
             const ctx = await getContactContext(userId, email.from);
             const result = await classifyEmail(
               {
@@ -184,13 +173,12 @@ export const classifyBatchJob = inngest.createFunction(
                 },
               });
               await trackContact(userId, email.from, email.fromName, email.subject);
-              successCount++;
+              return true;
             }
-          } catch (error) {
-            console.error(`[classify-batch] Individual fallback failed for ${email.emailId}:`, error);
-          }
-        }
-        return successCount;
+            return false;
+          })
+        );
+        return results.filter((r) => r.status === 'fulfilled' && r.value === true).length;
       });
 
       fallbackSuccessCount = fallbackResult;

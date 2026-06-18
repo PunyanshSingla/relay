@@ -1,6 +1,6 @@
 const RETRY_DELAYS = [1000, 3000, 9000];
 
-export function isRetryable(error: unknown): boolean {
+function isRetryable(error: unknown): boolean {
   if (error && typeof error === "object" && "statusCode" in error) {
     const status = (error as { statusCode: number }).statusCode;
     return status === 503 || status === 529 || status === 429;

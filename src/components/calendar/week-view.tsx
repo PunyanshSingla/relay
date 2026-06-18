@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import type { CalendarEvent } from "./calendar-types";
 import { TimeGrid } from "./time-grid";
 import { getWeekDays, indexEventsByDay, isToday, dayKey, isAllDayEvent, getBarColor, getEventDateSpan, isSameDay } from "./calendar-utils";
@@ -13,11 +12,11 @@ interface WeekViewProps {
 }
 
 export function WeekView({ events, currentDate, onEventClick, onTimeSlotClick }: WeekViewProps) {
-  const days = useMemo(() => getWeekDays(currentDate), [currentDate]);
-  const { allDayByDay, timedByDay } = useMemo(() => indexEventsByDay(events), [events]);
+  const days = getWeekDays(currentDate);
+  const { allDayByDay, timedByDay } = indexEventsByDay(events);
 
   // Collect all unique all-day events across the week
-  const allDayEvents = useMemo(() => {
+  const allDayEvents = (() => {
     const seen = new Set<string>();
     const result: CalendarEvent[] = [];
     for (const day of days) {
@@ -32,7 +31,7 @@ export function WeekView({ events, currentDate, onEventClick, onTimeSlotClick }:
       }
     }
     return result;
-  }, [days, allDayByDay]);
+  })();
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -47,13 +46,13 @@ export function WeekView({ events, currentDate, onEventClick, onTimeSlotClick }:
               const key = dayKey(day);
               const dayEvents = allDayByDay.get(key) ?? [];
               return (
-                <div key={i} className="flex-1 border-l border-border p-0.5 space-y-0.5 min-h-[28px]">
+                <div key={key} className="flex-1 border-l border-border p-0.5 space-y-0.5 min-h-[28px]">
                   {dayEvents.slice(0, 2).map((ev, j) => {
                     const span = getEventDateSpan(ev);
                     const isFirst = span[0] && isSameDay(span[0], day);
                     return (
                       <div
-                        key={j}
+                        key={ev.id ?? ev.summary ?? `event-${j}`}
                         className={`rounded-sm px-1 py-px text-[10px] leading-tight truncate ${getBarColor(ev.status)} text-white`}
                       >
                         {isFirst ? (ev.summary || "Busy") : ""}

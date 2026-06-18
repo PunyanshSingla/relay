@@ -12,10 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useToolbar } from "./toolbar-provider";
 
-const ImagePlaceholderToolbar = React.forwardRef<
-	HTMLButtonElement,
-	ButtonProps
->(({ className, onClick, children, ...props }, ref) => {
+export function ImagePlaceholderToolbar({ className, onClick, children, ref, ...props }: ButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
 	const { editor } = useToolbar();
 	return (
 		<Tooltip>
@@ -44,8 +41,4 @@ const ImagePlaceholderToolbar = React.forwardRef<
 			</TooltipContent>
 		</Tooltip>
 	);
-});
-
-ImagePlaceholderToolbar.displayName = "ImagePlaceholderToolbar";
-
-export { ImagePlaceholderToolbar };
+}

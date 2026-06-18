@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,36 +36,33 @@ export function CalendarGrid({
   const month = currentDate.getMonth();
 
   // Keyboard navigation
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-      const clone = new Date(currentDate);
+    const clone = new Date(currentDate);
 
-      switch (e.key) {
-        case "ArrowLeft":
-          clone.setDate(clone.getDate() - 1);
-          onDateChange(clone);
-          break;
-        case "ArrowRight":
-          clone.setDate(clone.getDate() + 1);
-          onDateChange(clone);
-          break;
-        case "ArrowUp":
-          clone.setDate(clone.getDate() - (view === "month" ? 7 : 1));
-          onDateChange(clone);
-          break;
-        case "ArrowDown":
-          clone.setDate(clone.getDate() + (view === "month" ? 7 : 1));
-          onDateChange(clone);
-          break;
-        case "t":
-          onDateChange(new Date());
-          break;
-      }
-    },
-    [currentDate, view, onDateChange],
-  );
+    switch (e.key) {
+      case "ArrowLeft":
+        clone.setDate(clone.getDate() - 1);
+        onDateChange(clone);
+        break;
+      case "ArrowRight":
+        clone.setDate(clone.getDate() + 1);
+        onDateChange(clone);
+        break;
+      case "ArrowUp":
+        clone.setDate(clone.getDate() - (view === "month" ? 7 : 1));
+        onDateChange(clone);
+        break;
+      case "ArrowDown":
+        clone.setDate(clone.getDate() + (view === "month" ? 7 : 1));
+        onDateChange(clone);
+        break;
+      case "t":
+        onDateChange(new Date());
+        break;
+    }
+  };
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -73,7 +70,7 @@ export function CalendarGrid({
   }, [handleKeyDown]);
 
   // Title
-  const title = useMemo(() => {
+  const title = (() => {
     if (view === "month") {
       return currentDate.toLocaleDateString([], { month: "long", year: "numeric" });
     }
@@ -94,7 +91,7 @@ export function CalendarGrid({
     if (start.getMonth() === end.getMonth())
       return `${start.toLocaleDateString([], { month: "long" })} ${start.getDate()} – ${end.getDate()}, ${start.getFullYear()}`;
     return `${fmt(start)} – ${fmt(end)}, ${end.getFullYear()}`;
-  }, [currentDate, view]);
+  })();
 
   const handlePrev = () => {
     const d = new Date(currentDate);
@@ -142,6 +139,7 @@ export function CalendarGrid({
         <div className="flex rounded-lg bg-muted p-0.5">
           {(["month", "week", "day"] as ViewType[]).map((v) => (
             <button
+              type="button"
               key={v}
               onClick={() => onViewChange(v)}
               className={cn(

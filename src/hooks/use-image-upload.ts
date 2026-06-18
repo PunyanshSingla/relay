@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface UseImageUploadProps {
   onUpload?: (url: string) => void;
@@ -25,45 +25,41 @@ export function useImageUpload({ onUpload }: UseImageUploadProps = {}) {
       }
       
       setError(null);
+      setUploading(false);
       // In a real implementation, this would be the URL from the server
       return localUrl;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Upload failed";
       setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
       setUploading(false);
     }
   };
 
-  const handleThumbnailClick = useCallback(() => {
+  const handleThumbnailClick = () => {
     fileInputRef.current?.click();
-  }, []);
+  };
 
-  const handleFileChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (file) {
-        setFileName(file.name);
-        const localUrl = URL.createObjectURL(file);
-        setPreviewUrl(localUrl);
-        previewRef.current = localUrl;
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setFileName(file.name);
+      const localUrl = URL.createObjectURL(file);
+      setPreviewUrl(localUrl);
+      previewRef.current = localUrl;
 
-        try {
-          const uploadedUrl = await dummyUpload(file, localUrl);
-          onUpload?.(uploadedUrl);
-        } catch (err) {
-          URL.revokeObjectURL(localUrl);
-          setPreviewUrl(null);
-          setFileName(null);
-          return console.error(err)
-        }
+      try {
+        const uploadedUrl = await dummyUpload(file, localUrl);
+        onUpload?.(uploadedUrl);
+      } catch (err) {
+        URL.revokeObjectURL(localUrl);
+        setPreviewUrl(null);
+        setFileName(null);
+        return console.error(err)
       }
-    },
-    [onUpload]
-  );
+    }
+  };
 
-  const handleRemove = useCallback(() => {
+  const handleRemove = () => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
@@ -74,7 +70,7 @@ export function useImageUpload({ onUpload }: UseImageUploadProps = {}) {
       fileInputRef.current.value = "";
     }
     setError(null);
-  }, [previewUrl]);
+  };
 
   useEffect(() => {
     return () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   Calendar,
   Clock,
@@ -166,11 +166,11 @@ export default function CalendarPage() {
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  // Mini calendar state
-  const [miniYear, setMiniYear] = useState(currentDate.getFullYear());
-  const [miniMonth, setMiniMonth] = useState(currentDate.getMonth());
+  // Mini calendar derived from currentDate
+  const miniYear = currentDate.getFullYear();
+  const miniMonth = currentDate.getMonth();
 
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = async () => {
     setLoading(true);
     try {
       // Compute visible date range
@@ -209,13 +209,14 @@ export default function CalendarPage() {
       } else if (data.events) {
         setEvents(data.events);
       }
+      setLoading(false);
+      setInitialLoadDone(true);
     } catch (err) {
       console.error("Failed to load events:", err);
-    } finally {
       setLoading(false);
       setInitialLoadDone(true);
     }
-  }, [currentDate, view]);
+  };
 
   useEffect(() => {
     fetchEvents();
@@ -264,9 +265,9 @@ export default function CalendarPage() {
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setMeetingPrep(data.prep);
+      setMeetingPrepLoading(false);
     } catch {
       setMeetingPrep("Failed to generate meeting prep. Please try again.");
-    } finally {
       setMeetingPrepLoading(false);
     }
   };
@@ -329,7 +330,7 @@ export default function CalendarPage() {
     ? selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })
     : "";
 
-  const miniDays = useMemo(() => makeMiniDays(miniYear, miniMonth), [miniYear, miniMonth]);
+  const miniDays = makeMiniDays(miniYear, miniMonth);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -482,20 +483,19 @@ export default function CalendarPage() {
             <div className="rounded-xl border border-border bg-card p-3">
               <div className="mb-2 flex items-center justify-between">
                 <Button variant="ghost" size="icon-xs" onClick={() => {
-                  if (miniMonth === 0) { setMiniMonth(11); setMiniYear(miniYear - 1); }
-                  else setMiniMonth(miniMonth - 1);
+                  setCurrentDate(new Date(miniYear, miniMonth - 1, 1));
                 }}>
                   <ChevronLeft className="size-3" />
                 </Button>
                 <button
+                  type="button"
                   onClick={() => jumpToMonth(miniYear, miniMonth)}
                   className="text-xs font-medium hover:text-primary transition-colors"
                 >
                   {MONTHS_SHORT[miniMonth]} {miniYear}
                 </button>
                 <Button variant="ghost" size="icon-xs" onClick={() => {
-                  if (miniMonth === 11) { setMiniMonth(0); setMiniYear(miniYear + 1); }
-                  else setMiniMonth(miniMonth + 1);
+                  setCurrentDate(new Date(miniYear, miniMonth + 1, 1));
                 }}>
                   <ChevronRight className="size-3" />
                 </Button>
@@ -508,7 +508,8 @@ export default function CalendarPage() {
                   const hasEvents = events.some((ev) => eventSpansDay(ev, d));
                   return (
                     <button
-                      key={i}
+                      type="button"
+                      key={d.toISOString()}
                       onClick={() => jumpToMonth(d.getFullYear(), d.getMonth())}
                       className={cn(
                         "flex size-7 items-center justify-center rounded-full text-[11px] transition-colors",

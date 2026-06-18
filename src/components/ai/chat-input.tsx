@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, Mic, MicOff, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -61,14 +61,10 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Voice state
-  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceSupported] = useState(() => typeof window !== "undefined" && getSpeechRecognition() !== null);
   const [isRecording, setIsRecording] = useState(false);
   const [interimText, setInterimText] = useState("");
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-
-  useEffect(() => {
-    setVoiceSupported(getSpeechRecognition() !== null);
-  }, []);
 
   useEffect(() => {
     if (placeholder) return;
@@ -100,7 +96,7 @@ export function ChatInput({
     }
   };
 
-  const toggleRecording = useCallback(() => {
+  const toggleRecording = () => {
     if (isRecording) {
       recognitionRef.current?.stop();
       setIsRecording(false);
@@ -142,7 +138,7 @@ export function ChatInput({
     recognitionRef.current = recognition;
     recognition.start();
     setIsRecording(true);
-  }, [isRecording, value]);
+  };
 
   // Cleanup on unmount
   useEffect(() => {
@@ -163,6 +159,7 @@ export function ChatInput({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          aria-label="Chat message"
           placeholder={
             isRecording
               ? "Listening... speak now"

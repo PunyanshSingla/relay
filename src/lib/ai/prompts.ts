@@ -58,7 +58,7 @@ export interface MeetingPrepData {
   pendingFollowUps: string;
 }
 
-export function buildMeetingPrepPrompt(data: MeetingPrepData): string {
+function buildMeetingPrepPrompt(data: MeetingPrepData): string {
   return `You are an AI meeting prep assistant. Generate a concise meeting brief.
 
 MEETING: ${data.summary}

@@ -27,7 +27,7 @@ function emailListKey(filter: FilterId, sender?: string) {
   };
 }
 
-export function useEmailList(filter: FilterId, sender?: string) {
+function useEmailList(filter: FilterId, sender?: string) {
   const { data, error, size, setSize, isValidating, mutate } = useSWRInfinite<
     EmailsApiResponse | undefined
   >(emailListKey(filter, sender), fetcher, {

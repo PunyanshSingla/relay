@@ -13,14 +13,14 @@ export async function GET() {
     const tenant = corsair.withTenant(session.user.id);
     const result = await tenant.gmail.api.labels.list({});
 
-    const labels = (result.labels ?? [])
-      .filter((l) => l.type === "user" && l.name)
-      .map((l) => ({
-        id: l.id ?? "",
-        name: l.name ?? "",
-        unread: l.threadsUnread ?? 0,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const labelsRaw = result.labels ?? [];
+    const labels = [];
+    for (const l of labelsRaw) {
+      if (l.type === "user" && l.name) {
+        labels.push({ id: l.id ?? "", name: l.name ?? "", unread: l.threadsUnread ?? 0 });
+      }
+    }
+    labels.sort((a, b) => a.name.localeCompare(b.name));
 
     return NextResponse.json({ labels });
   } catch (error) {

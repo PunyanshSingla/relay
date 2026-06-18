@@ -72,6 +72,7 @@ export const AiSuggestion = Extension.create<AiSuggestionOptions>({
 
       extension.options.onSuggestionStart?.();
 
+      let shouldCleanup = true;
       try {
         const ctx = extension.options.getContext();
         const res = await fetch("/api/ai/compose", {
@@ -87,70 +88,75 @@ export const AiSuggestion = Extension.create<AiSuggestionOptions>({
           signal: abortController.signal,
         });
 
-        if (!res.ok || !res.body) return;
+        if (res.ok && res.body) {
+          const state = view.state;
+          const cursorPos = state.selection.$head.pos;
+          let accumulated = "";
+          const spanRef: { current: HTMLSpanElement | null } = { current: null };
 
-        const state = view.state;
-        const cursorPos = state.selection.$head.pos;
-        let accumulated = "";
-        const spanRef: { current: HTMLSpanElement | null } = { current: null };
+          const deco = Decoration.widget(
+            cursorPos,
+            (widgetView) => {
+              const span = document.createElement("span");
+              span.className = "ai-suggestion-ghost";
+              span.title = "Tab to accept, Esc to dismiss";
+              spanRef.current = span;
+              return span;
+            },
+            { side: 1 },
+          );
 
-        const deco = Decoration.widget(
-          cursorPos,
-          (widgetView) => {
-            const span = document.createElement("span");
-            span.className = "ai-suggestion-ghost";
-            span.title = "Tab to accept, Esc to dismiss";
-            spanRef.current = span;
-            return span;
-          },
-          { side: 1 },
-        );
+          view.dispatch(
+            state.tr.setMeta(aiSuggestionPluginKey, {
+              text: "",
+              deco,
+            }),
+          );
 
-        view.dispatch(
-          state.tr.setMeta(aiSuggestionPluginKey, {
-            text: "",
-            deco,
-          }),
-        );
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+            accumulated += decoder.decode(value, { stream: true });
 
-          accumulated += decoder.decode(value, { stream: true });
+            if (spanRef.current) {
+              spanRef.current.textContent = accumulated;
+            }
+          }
 
-          if (spanRef.current) {
-            spanRef.current.textContent = accumulated;
+          if (accumulated.trim()) {
+            const finalText = accumulated;
+            if (spanRef.current) {
+              spanRef.current.textContent = finalText;
+              spanRef.current.addEventListener("click", () => {
+                const tr = view.state.tr.insertText(finalText, cursorPos);
+                view.dispatch(tr);
+              });
+            }
+
+            view.dispatch(
+              view.state.tr.setMeta(aiSuggestionPluginKey, {
+                text: finalText,
+                deco,
+              }),
+            );
+          } else {
+            removeSuggestion(view);
           }
         }
-
-        if (!accumulated.trim()) {
-          removeSuggestion(view);
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          shouldCleanup = false;
+          extension.options.onSuggestionEnd?.();
+          abortController = null;
           return;
         }
-
-        const finalText = accumulated;
-        if (spanRef.current) {
-          spanRef.current.textContent = finalText;
-          spanRef.current.addEventListener("click", () => {
-            const tr = view.state.tr.insertText(finalText, cursorPos);
-            view.dispatch(tr);
-          });
-        }
-
-        view.dispatch(
-          view.state.tr.setMeta(aiSuggestionPluginKey, {
-            text: finalText,
-            deco,
-          }),
-        );
-      } catch (err: unknown) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
         console.error("[ai-suggestion] fetch failed:", err);
-      } finally {
+      }
+      if (shouldCleanup) {
         extension.options.onSuggestionEnd?.();
         abortController = null;
       }

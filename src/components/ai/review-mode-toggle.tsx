@@ -13,6 +13,7 @@ export function ReviewModeToggle({ mode, onChange }: ReviewModeToggleProps) {
   return (
     <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-0.5">
       <button
+        type="button"
         onClick={() => onChange("review")}
         className={cn(
           "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all",
@@ -26,6 +27,7 @@ export function ReviewModeToggle({ mode, onChange }: ReviewModeToggleProps) {
         Review
       </button>
       <button
+        type="button"
         onClick={() => onChange("auto")}
         className={cn(
           "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all",

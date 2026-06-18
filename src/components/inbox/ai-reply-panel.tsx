@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sparkles, Copy, Check, CheckCircle2, MailOpen, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
 
-  const fetchReply = useCallback(async (mode: ReplyMode) => {
+  const fetchReply = async (mode: ReplyMode) => {
     try {
       const res = await fetch("/api/ai/reply", {
         method: "POST",
@@ -60,9 +60,9 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
     } catch {
       return false;
     }
-  }, [emailId]);
+  };
 
-  const triggerGeneration = useCallback(async (mode: ReplyMode) => {
+  const triggerGeneration = async (mode: ReplyMode) => {
     setStatus("generating");
     setReply(null);
     setCopied(false);
@@ -70,10 +70,13 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
 
     const done = await fetchReply(mode);
     if (done) return;
-  }, [fetchReply]);
+  };
+
+  const triggerGenerationRef = useRef(triggerGeneration);
+  triggerGenerationRef.current = triggerGeneration;
 
   useEffect(() => {
-    triggerGeneration(activeMode);
+    triggerGenerationRef.current(activeMode);
 
     return () => {
       if (pollRef.current) {
@@ -152,6 +155,7 @@ export function AIReplyPanel({ emailId, activeMode, onModeChange, onInsert }: AI
         <div className="flex items-center gap-1">
           {modes.map((mode) => (
             <button
+              type="button"
               key={mode.id}
               onClick={() => handleModeChange(mode.id)}
               className={cn(

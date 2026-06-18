@@ -39,7 +39,7 @@ export async function upsertSyncState(
   }) as Promise<SyncState>;
 }
 
-export async function resetSyncState(userId: string): Promise<void> {
+async function resetSyncState(userId: string): Promise<void> {
   await prisma.syncState.upsert({
     where: { userId },
     create: {
@@ -79,7 +79,7 @@ export async function markSyncComplete(userId: string): Promise<void> {
   });
 }
 
-export async function incrementSyncedCount(
+async function incrementSyncedCount(
   userId: string,
   count: number
 ): Promise<void> {

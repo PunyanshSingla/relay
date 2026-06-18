@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, use, useState, useEffect, useCallback, useRef } from "react";
 
 interface SyncState {
   phase: "idle" | "syncing" | "classifying" | "complete";
@@ -29,7 +29,7 @@ const SyncStatusContext = createContext<SyncStatusContextValue>({
 });
 
 export function useSyncStatus() {
-  return useContext(SyncStatusContext);
+  return use(SyncStatusContext);
 }
 
 export function SyncStatusProvider({ children }: { children: React.ReactNode }) {

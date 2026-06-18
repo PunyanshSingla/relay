@@ -25,6 +25,9 @@
 # dashboard
 - When building new dashboard pages, match the existing UI and design system of all other pages for consistency. Confidence: 0.70
 
+# data-fetching
+- Use TanStack Query or SWR for all data fetching instead of manual fetch calls. Confidence: 0.80
+
 # workflow
 - Plan UI features completely before implementing them — present the plan for approval first. Confidence: 0.75
 

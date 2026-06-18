@@ -219,11 +219,10 @@ export function TipTapFloatingMenu({ editor }: { editor: Editor }) {
         commandFn(editor);
       } catch (error) {
         console.error("Error executing command:", error);
-      } finally {
-        setIsOpen(false);
-        setSearch("");
-        setSelectedIndex(-1);
       }
+      setIsOpen(false);
+      setSearch("");
+      setSelectedIndex(-1);
     },
     [editor, search]
   );
@@ -272,6 +271,9 @@ export function TipTapFloatingMenu({ editor }: { editor: Editor }) {
     [isOpen, selectedIndex, flatFilteredItems, executeCommand, editor]
   );
 
+  const handleKeyDownRef = useRef(handleKeyDown);
+  handleKeyDownRef.current = handleKeyDown;
+
   useEffect(() => {
     if (!editor?.options.element) return;
 
@@ -279,16 +281,22 @@ export function TipTapFloatingMenu({ editor }: { editor: Editor }) {
     const editorElement = "mount" in el ? el.mount : el;
     if (!editorElement || typeof editorElement === "function") return;
 
-    const handleEditorKeyDown = (e: Event) => handleKeyDown(e as KeyboardEvent);
+    const handleEditorKeyDown = (e: Event) => handleKeyDownRef.current(e as KeyboardEvent);
 
     editorElement.addEventListener("keydown", handleEditorKeyDown);
     return () =>
       editorElement.removeEventListener("keydown", handleEditorKeyDown);
-  }, [handleKeyDown, editor]);
+  }, [editor]);
 
-  // Add new effect for resetting selectedIndex
-  useEffect(() => {
+  const resetIndexOnSearch = useCallback(() => {
     setSelectedIndex(-1);
+  }, []);
+
+  const resetIndexRef = useRef(resetIndexOnSearch);
+  resetIndexRef.current = resetIndexOnSearch;
+
+  useEffect(() => {
+    resetIndexRef.current();
   }, [search]);
 
   useEffect(() => {

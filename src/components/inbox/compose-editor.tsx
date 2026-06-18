@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, useMemo } from "react";
+import { useImperativeHandle, useRef, useMemo } from "react";
 import { useEditor, EditorContent, type Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -18,6 +18,7 @@ import { SpellChecker } from "@/components/tiptap/extensions/spell-checker";
 import { EditorToolbar } from "@/components/tiptap/toolbars/editor-toolbar";
 import { AiToolbar } from "@/components/tiptap/toolbars/ai-toolbar";
 import "@/components/tiptap/tiptap.css";
+import type React from "react";
 
 const baseExtensions = [
   StarterKit.configure({
@@ -67,10 +68,10 @@ interface ComposeEditorProps {
     to?: string;
     thread?: string;
   };
+  ref?: React.Ref<ComposeEditorRef>;
 }
 
-export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(
-  function ComposeEditor({ content = "", onChange, emailContext }, ref) {
+export function ComposeEditor({ content = "", onChange, emailContext, ref }: ComposeEditorProps) {
     const isRemoteUpdate = useRef(false);
     const contextRef = useRef(emailContext);
     contextRef.current = emailContext;
@@ -130,5 +131,4 @@ export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(
         <EditorContent editor={editor} className="min-h-[200px]" />
       </div>
     );
-  }
-);
+}

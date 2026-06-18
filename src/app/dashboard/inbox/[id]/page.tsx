@@ -40,22 +40,28 @@ export default function EmailDetailPage() {
 
   useEffect(() => {
     if (email && !email.read) {
+      const controller = new AbortController();
       fetch(`/api/emails/${emailId}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "read" }),
+        signal: controller.signal,
       });
       mutate({ email: { ...email, read: true } }, { revalidate: false });
+      return () => controller.abort();
     }
   }, [emailId, email, mutate]);
 
   useEffect(() => {
     if (email?.id) {
+      const controller = new AbortController();
       fetch("/api/ai/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emailId: email.id }),
+        signal: controller.signal,
       }).catch(() => {});
+      return () => controller.abort();
     }
   }, [email?.id]);
 

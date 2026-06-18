@@ -29,8 +29,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
-  const body = await request.json().catch(() => null);
+  const [{ id }, body] = await Promise.all([params, request.json().catch(() => null)]);
   const action = body?.action as Action | undefined;
 
   if (!action || !(action in ACTIONS)) {

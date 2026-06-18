@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   X,
   Send,
@@ -172,7 +172,7 @@ export function ComposeModal({
     }
   }, [open, mode, replyTo]);
 
-  const addAttachments = useCallback((files: FileList | File[]) => {
+  const addAttachments = (files: FileList | File[]) => {
     const newAttachments: Attachment[] = Array.from(files).map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       name: file.name,
@@ -190,13 +190,13 @@ export function ComposeModal({
     Promise.all(readFiles).then(() => {
       setAttachments((prev) => [...prev, ...newAttachments]);
     });
-  }, []);
+  };
 
-  const removeAttachment = useCallback((id: string) => {
+  const removeAttachment = (id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
-  }, []);
+  };
 
-  const addUrlAttachment = useCallback(() => {
+  const addUrlAttachment = () => {
     if (!urlInput.trim()) return;
     const name = urlInput.split("/").pop()?.split("?")[0] ?? "attachment";
     const mimeType = guessMimeType(name);
@@ -212,12 +212,12 @@ export function ComposeModal({
     ]);
     setUrlInput("");
     setShowUrlInput(false);
-  }, [urlInput]);
+  };
 
   const totalSize = attachments.reduce((sum, a) => sum + a.size, 0);
   const MAX_SIZE = 25 * 1024 * 1024;
 
-  const handleSend = useCallback(async () => {
+  const handleSend = async () => {
     if (!to.trim()) {
       setError("Please enter a recipient");
       return;
@@ -264,28 +264,27 @@ export function ComposeModal({
       }
 
       onOpenChange(false);
+      setSending(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send email");
-    } finally {
       setSending(false);
     }
-  }, [to, cc, bcc, subject, bodyHtml, attachments, replyTo, onOpenChange]);
+  };
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onOpenChange(false);
-      }
-    },
-    [onOpenChange]
-  );
+  const handleKeyDownRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  handleKeyDownRef.current = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      onOpenChange(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
-      document.addEventListener("keydown", handleKeyDown);
-      return () => document.removeEventListener("keydown", handleKeyDown);
+      const handler = (e: KeyboardEvent) => handleKeyDownRef.current(e);
+      document.addEventListener("keydown", handler);
+      return () => document.removeEventListener("keydown", handler);
     }
-  }, [open, handleKeyDown]);
+  }, [open]);
 
   const modeTitle =
     mode === "reply"
@@ -318,13 +317,14 @@ export function ComposeModal({
         <div className="flex flex-col max-h-[calc(100vh-200px)]">
           <div className="flex flex-col">
             <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-              <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">From</label>
-              <span className="text-sm text-foreground">You</span>
+              <label htmlFor="compose-from" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">From</label>
+              <span id="compose-from" className="text-sm text-foreground">You</span>
             </div>
 
             <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-              <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">To</label>
+              <label htmlFor="compose-to" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">To</label>
               <Input
+                id="compose-to"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
                 placeholder="recipient@email.com"
@@ -347,8 +347,9 @@ export function ComposeModal({
             {showCcBcc && (
               <>
                 <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-                  <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Cc</label>
+                  <label htmlFor="compose-cc" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Cc</label>
                   <Input
+                    id="compose-cc"
                     value={cc}
                     onChange={(e) => setCc(e.target.value)}
                     placeholder="cc@email.com"
@@ -356,8 +357,9 @@ export function ComposeModal({
                   />
                 </div>
                 <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-                  <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Bcc</label>
+                  <label htmlFor="compose-bcc" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Bcc</label>
                   <Input
+                    id="compose-bcc"
                     value={bcc}
                     onChange={(e) => setBcc(e.target.value)}
                     placeholder="bcc@email.com"
@@ -368,8 +370,9 @@ export function ComposeModal({
             )}
 
             <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-              <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Subject</label>
+              <label htmlFor="compose-subject" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Subject</label>
               <Input
+                id="compose-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Subject"

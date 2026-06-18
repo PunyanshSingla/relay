@@ -16,32 +16,25 @@ export async function PATCH(
   const body = await request.json().catch(() => null);
   const status = body?.status as string | undefined;
 
-  if (!status || !["accepted", "dismissed"].includes(status)) {
+  if (!status || !["enabled", "dismissed"].includes(status)) {
     return NextResponse.json(
-      { error: "Invalid status. Must be: accepted, dismissed" },
+      { error: "Invalid status. Must be: enabled, dismissed" },
       { status: 400 }
     );
   }
 
-  const rule = await prisma.automationRule.findUnique({
+  const candidate = await prisma.workflowCandidate.findUnique({
     where: { id },
     select: { userId: true },
   });
 
-  if (!rule || rule.userId !== session.user.id) {
-    return NextResponse.json({ error: "Automation not found" }, { status: 404 });
+  if (!candidate || candidate.userId !== session.user.id) {
+    return NextResponse.json({ error: "Workflow candidate not found" }, { status: 404 });
   }
 
-  const updateData: Record<string, unknown> = { status };
-  if (status === "dismissed") {
-    const suppressUntil = new Date();
-    suppressUntil.setDate(suppressUntil.getDate() + 30);
-    updateData.suppressedUntil = suppressUntil;
-  }
-
-  await prisma.workflowPattern.update({
+  await prisma.workflowCandidate.update({
     where: { id },
-    data: updateData,
+    data: { status },
   });
 
   return NextResponse.json({ ok: true });

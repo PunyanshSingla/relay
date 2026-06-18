@@ -1,54 +1,37 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FollowUpItem } from "@/components/follow-ups/follow-up-item";
-import type { FollowUp, FollowUpStatus } from "@/types/follow-up";
+import type { FollowUp } from "@/types/follow-up";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 type FilterStatus = "all" | "pending" | "dismissed";
 
 export default function FollowUpsPage() {
   const router = useRouter();
-  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>("pending");
-  const [counts, setCounts] = useState({ pending: 0, dismissed: 0, acted_upon: 0 });
 
-  const fetchFollowUps = useCallback(async (status: FilterStatus) => {
-    setLoading(true);
-    try {
-      const query = status === "all" ? "" : `?status=${status}`;
-      const res = await fetch(`/api/follow-ups${query}`);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setFollowUps(data.followUps);
-      setCounts(data.counts);
-    } catch {
-      setFollowUps([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, isLoading, mutate } = useSWR(
+    `/api/follow-ups${filter === "all" ? "" : `?status=${filter}`}`,
+    fetcher
+  );
 
-  useEffect(() => {
-    fetchFollowUps(filter);
-  }, [filter, fetchFollowUps]);
+  const followUps: FollowUp[] = data?.followUps ?? [];
+  const counts = data?.counts ?? { pending: 0, dismissed: 0, acted_upon: 0 };
 
   const handleDismiss = async (id: string) => {
-    setFollowUps((prev) => prev.filter((f) => f.id !== id));
-    setCounts((prev) => ({ ...prev, pending: Math.max(0, prev.pending - 1) }));
-    try {
-      await fetch(`/api/follow-ups/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "dismissed" }),
-      });
-    } catch {
-      fetchFollowUps(filter);
-    }
+    await fetch(`/api/follow-ups/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "dismissed" }),
+    });
+    mutate();
   };
 
   const handleOpen = (followUp: FollowUp) => {

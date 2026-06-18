@@ -64,7 +64,7 @@ export async function getContactContext(userId: string, from: string) {
   };
 }
 
-export async function findContactByEmail(userId: string, email: string) {
+async function findContactByEmail(userId: string, email: string) {
   return prisma.contact.findUnique({
     where: { userId_email: { userId, email: email.toLowerCase() } },
   });

@@ -37,6 +37,7 @@ export default function LoginPage() {
         } else {
           setError(signInError.message || "Invalid email or password.");
         }
+        setLoading(false);
         return;
       }
 
@@ -44,7 +45,6 @@ export default function LoginPage() {
     } catch (err) {
       console.error("Sign in unexpected error:", err);
       setError("An unexpected error occurred. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
@@ -61,10 +61,10 @@ export default function LoginPage() {
       if (socialError) {
         setError(socialError.message || "Google sign-in failed. Please try again.");
       }
+      setGoogleLoading(false);
     } catch (err) {
       console.error("Google login unexpected error:", err);
       setError("Google sign-in failed. Please try again.");
-    } finally {
       setGoogleLoading(false);
     }
   };

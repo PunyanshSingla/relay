@@ -1,5 +1,4 @@
 allowBuilds:
-  '@openrouter/sdk': true
   '@prisma/engines': true
   core-js: true
   prisma: true

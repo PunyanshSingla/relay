@@ -175,6 +175,7 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
         {email.bodyHtml ? (
           <iframe
             ref={iframeRef}
+            title="Email content"
             srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:${isDark ? "#e5e5e5" : "#1a1a1a"};background:${isDark ? "#1e1e1e" : "#fff"};}a{color:${isDark ? "#60a5fa" : "#0066cc"};}table{border-collapse:separate;}td,th{padding:4px 8px;${isDark ? "border-color:#333;" : ""}}blockquote{border-left:3px solid ${isDark ? "#444" : "#ddd"};padding-left:12px;margin:0;color:${isDark ? "#999" : "#555"};}img{max-width:100%;height:auto;${isDark ? "opacity:0.9;filter:brightness(0.9);" : ""}}</style></head><body>${DOMPurify.sanitize(email.bodyHtml, { ADD_TAGS: ["style"], ADD_ATTR: ["target", "style"] })}</body></html>`}
             sandbox="allow-same-origin"
             className="w-full border-0"

@@ -24,7 +24,7 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
   }
 }
 
-export async function storeEmailEmbedding(
+async function storeEmailEmbedding(
   emailId: string,
   text: string,
 ): Promise<void> {
@@ -32,14 +32,13 @@ export async function storeEmailEmbedding(
   if (!embedding) return;
 
   const id = crypto.randomUUID();
-  const vectorStr = `[${embedding.join(",")}]`;
 
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO email_embeddings (id, "emailId", embedding) VALUES ($1, $2, $3::vector) ON CONFLICT ("emailId") DO UPDATE SET embedding = $3::vector`,
-    id,
-    emailId,
-    vectorStr,
-  );
+  await prisma.$executeRaw`
+    INSERT INTO email_embeddings (id, "emailId", embedding)
+    VALUES (${id}::uuid, ${emailId}, ${embedding}::vector)
+    ON CONFLICT ("emailId")
+    DO UPDATE SET embedding = ${embedding}::vector
+  `;
 }
 
 export async function generateAndStoreForEmail(

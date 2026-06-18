@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "./calendar-types";
 import { HOUR_HEIGHT, GRID_START_HOUR, GRID_END_HOUR, TOTAL_HOURS } from "./calendar-types";
@@ -34,19 +34,16 @@ export function TimeGrid({ days, timedByDay, onEventClick, onTimeSlotClick }: Ti
     scrollRef.current.scrollTop = scrollTop;
   }, [days, now]);
 
-  const hours = useMemo(
-    () => Array.from({ length: TOTAL_HOURS }, (_, i) => GRID_START_HOUR + i),
-    [],
-  );
+  const hours = Array.from({ length: TOTAL_HOURS }, (_, i) => GRID_START_HOUR + i);
 
   const showCurrentTime = days.some(isToday);
   const todayIndex = days.findIndex(isToday);
 
-  const nowTop = useMemo(() => {
+  const nowTop = (() => {
     if (!showCurrentTime) return 0;
     const h = now.getHours() + now.getMinutes() / 60;
     return (h - GRID_START_HOUR) * HOUR_HEIGHT;
-  }, [now, showCurrentTime]);
+  })();
 
   const handleClick = (e: React.MouseEvent, dayIndex: number) => {
     if (!onTimeSlotClick) return;
@@ -67,7 +64,7 @@ export function TimeGrid({ days, timedByDay, onEventClick, onTimeSlotClick }: Ti
           const today = isToday(day);
           return (
             <div
-              key={i}
+              key={day.toISOString()}
               className={cn(
                 "flex-1 flex flex-col items-center py-2 border-l border-border",
                 today && "bg-primary/5",
@@ -124,8 +121,11 @@ export function TimeGrid({ days, timedByDay, onEventClick, onTimeSlotClick }: Ti
             return (
               <div
                 key={dayIndex}
+                role="button"
+                tabIndex={0}
                 className="flex-1 relative border-l border-border"
                 onClick={(e) => handleClick(e, dayIndex)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(e as unknown as React.MouseEvent, dayIndex); } }}
               >
                 {/* Hour lines */}
                 {hours.map((hour) => (

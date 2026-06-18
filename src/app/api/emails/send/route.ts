@@ -32,27 +32,31 @@ export async function POST(request: Request) {
 
     const attachments: { filename: string; mimeType: string; base64Content: string }[] = [];
 
-    for (const file of attachmentFiles) {
-      if (file instanceof File) {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const base64Content = buffer
-          .toString("base64")
-          .replace(/(.{76})/g, "$1\r\n")
-          .trim();
-        attachments.push({
-          filename: file.name,
-          mimeType: file.type || "application/octet-stream",
-          base64Content,
-        });
-      }
-    }
+    const processedAttachments = await Promise.all(
+      attachmentFiles.map(async (file) => {
+        if (file instanceof File) {
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const base64Content = buffer
+            .toString("base64")
+            .replace(/(.{76})/g, "$1\r\n")
+            .trim();
+          return {
+            filename: file.name,
+            mimeType: file.type || "application/octet-stream",
+            base64Content,
+          };
+        }
+        return null;
+      })
+    );
+    attachments.push(...processedAttachments.filter(Boolean) as { filename: string; mimeType: string; base64Content: string }[]);
 
     if (attachmentUrlsRaw) {
       const urls: string[] = JSON.parse(attachmentUrlsRaw);
-      for (const url of urls) {
-        try {
+      const urlResults = await Promise.allSettled(
+        urls.map(async (url) => {
           const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
-          if (!response.ok) continue;
+          if (!response.ok) throw new Error(`Failed to fetch ${url}`);
 
           const contentType = response.headers.get("content-type") || "application/octet-stream";
           const contentDisposition = response.headers.get("content-disposition");
@@ -70,15 +74,17 @@ export async function POST(request: Request) {
             .replace(/(.{76})/g, "$1\r\n")
             .trim();
 
-          attachments.push({
+          return {
             filename,
             mimeType: contentType.split(";")[0].trim(),
             base64Content,
-          });
-        } catch {
-          continue;
-        }
-      }
+          };
+        })
+      );
+      const urlAttachments = urlResults
+        .filter((r): r is PromiseFulfilledResult<{ filename: string; mimeType: string; base64Content: string }> => r.status === 'fulfilled')
+        .map((r) => r.value);
+      attachments.push(...urlAttachments);
     }
 
     const user = session.user as { email?: string };

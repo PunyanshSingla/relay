@@ -190,21 +190,25 @@ export function useChat() {
 
       let lastError: Error | null = null;
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        try {
-          const res = await fetch("/api/ai/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-            signal: controller.signal,
-          });
+      let aborted = false;
+      try {
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
 
-          if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
+        if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
 
-          await processStream(res, assistantId, setMessages, controller);
-          lastError = null;
-          break;
-        } catch (err) {
-          if ((err as Error).name === "AbortError") throw err;
+        await processStream(res, assistantId, setMessages, controller);
+        lastError = null;
+        break;
+      } catch (err) {
+        if ((err as Error).name === "AbortError") {
+          lastError = err as Error;
+          aborted = true;
+        } else {
           lastError = err as Error;
           console.warn(
             `[chat] Attempt ${attempt + 1} failed:`,
@@ -228,6 +232,8 @@ export function useChat() {
             await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
           }
         }
+      }
+      if (aborted) break;
       }
 
       if (lastError) {
@@ -281,10 +287,11 @@ export function useChat() {
           history,
           mode: reviewMode,
         });
-      } finally {
-        setLoading(false);
-        abortRef.current = null;
+      } catch {
+        // error handled
       }
+      setLoading(false);
+      abortRef.current = null;
     },
     [loading, messages, reviewMode, streamRequest]
   );
@@ -375,10 +382,11 @@ export function useChat() {
           history,
           mode: reviewMode,
         });
-      } finally {
-        setLoading(false);
-        abortRef.current = null;
+      } catch {
+        // error handled
       }
+      setLoading(false);
+      abortRef.current = null;
     },
     [loading, messages, reviewMode, streamRequest]
   );
@@ -430,10 +438,11 @@ export function useChat() {
           history,
           mode: reviewMode,
         });
-      } finally {
-        setLoading(false);
-        abortRef.current = null;
+      } catch {
+        // error handled
       }
+      setLoading(false);
+      abortRef.current = null;
     },
     [loading, messages, reviewMode, streamRequest]
   );

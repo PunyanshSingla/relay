@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "./calendar-types";
 import {
@@ -29,8 +28,8 @@ interface MonthViewProps {
 export function MonthView({ events, currentDate, selectedDate, onDayClick, onDayDoubleClick }: MonthViewProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const days = useMemo(() => getMonthDays(year, month), [year, month]);
-  const { allDayByDay, timedByDay } = useMemo(() => indexEventsByDay(events), [events]);
+  const days = getMonthDays(year, month);
+  const { allDayByDay, timedByDay } = indexEventsByDay(events);
 
   const maxEvents = 2;
   const maxAllDay = 2;
@@ -60,7 +59,8 @@ export function MonthView({ events, currentDate, selectedDate, onDayClick, onDay
 
           return (
             <button
-              key={i}
+              type="button"
+              key={dKey}
               onClick={() => onDayClick(day)}
               onDoubleClick={() => onDayDoubleClick(day)}
               className={cn(

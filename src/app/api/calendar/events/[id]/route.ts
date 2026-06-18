@@ -15,8 +15,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    await ensureCorsairSetup();
-    await ensureTenant(session.user.id);
+    await Promise.all([ensureCorsairSetup(), ensureTenant(session.user.id)]);
     const tenant = corsair.withTenant(session.user.id);
 
     const event = await tenant.googlecalendar.api.events.get({
@@ -45,8 +44,7 @@ export async function PUT(
     const body = await request.json();
     const { summary, description, location, start, end, startDateTime, endDateTime, attendees, colorId } = body;
 
-    await ensureCorsairSetup();
-    await ensureTenant(session.user.id);
+    await Promise.all([ensureCorsairSetup(), ensureTenant(session.user.id)]);
     const tenant = corsair.withTenant(session.user.id);
 
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -115,8 +113,7 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await ensureCorsairSetup();
-    await ensureTenant(session.user.id);
+    await Promise.all([ensureCorsairSetup(), ensureTenant(session.user.id)]);
     const tenant = corsair.withTenant(session.user.id);
 
     await tenant.googlecalendar.api.events.delete({

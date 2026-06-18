@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent, PositionedEvent } from "./calendar-types";
 import { HOUR_HEIGHT, GRID_START_HOUR, GRID_END_HOUR } from "./calendar-types";
@@ -22,6 +21,7 @@ export function TimeGridEvent({ event, onClick }: TimeGridEventProps) {
 
   return (
     <button
+      type="button"
       onClick={(e) => {
         e.stopPropagation();
         onClick?.(event);
@@ -53,22 +53,20 @@ export function TimeGridEvent({ event, onClick }: TimeGridEventProps) {
 }
 
 function useEventPosition(event: CalendarEvent) {
-  return useMemo(() => {
-    const startStr = event.start?.dateTime;
-    if (!startStr) return { top: 0, height: 30, left: 0, width: 100 };
+  const startStr = event.start?.dateTime;
+  if (!startStr) return { top: 0, height: 30, left: 0, width: 100 };
 
-    const start = new Date(startStr);
-    const endStr = event.end?.dateTime;
-    const end = endStr ? new Date(endStr) : new Date(start.getTime() + 60 * 60 * 1000);
+  const start = new Date(startStr);
+  const endStr = event.end?.dateTime;
+  const end = endStr ? new Date(endStr) : new Date(start.getTime() + 60 * 60 * 1000);
 
-    const startHour = start.getHours() + start.getMinutes() / 60;
-    const endHour = end.getHours() + end.getMinutes() / 60;
+  const startHour = start.getHours() + start.getMinutes() / 60;
+  const endHour = end.getHours() + end.getMinutes() / 60;
 
-    const top = Math.max(0, (startHour - GRID_START_HOUR) * HOUR_HEIGHT);
-    const height = Math.max(((endHour - startHour) * HOUR_HEIGHT), 20);
+  const top = Math.max(0, (startHour - GRID_START_HOUR) * HOUR_HEIGHT);
+  const height = Math.max(((endHour - startHour) * HOUR_HEIGHT), 20);
 
-    return { top, height, left: 0, width: 100 };
-  }, [event]);
+  return { top, height, left: 0, width: 100 };
 }
 
 // Overlap layout algorithm
@@ -76,7 +74,7 @@ export function layoutEvents(events: CalendarEvent[]): PositionedEvent[] {
   if (events.length === 0) return [];
 
   // Sort by start time, then by duration (longer first)
-  const sorted = [...events].sort((a, b) => {
+  const sorted = events.toSorted((a, b) => {
     const aStart = a.start?.dateTime ?? a.start?.date ?? "";
     const bStart = b.start?.dateTime ?? b.start?.date ?? "";
     const cmp = aStart.localeCompare(bStart);

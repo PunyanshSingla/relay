@@ -1,13 +1,13 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 
 export interface ToolbarContextProps {
 	editor: Editor;
 }
 
-export const ToolbarContext = React.createContext<ToolbarContextProps | null>(
+const ToolbarContext = React.createContext<ToolbarContextProps | null>(
 	null,
 );
 
@@ -35,7 +35,7 @@ export const ToolbarProvider = ({ editor, children }: ToolbarProviderProps) => {
 };
 
 export const useToolbar = () => {
-	const context = React.useContext(ToolbarContext);
+	const context = use(ToolbarContext);
 
 	if (!context) {
 		throw new Error("useToolbar must be used within a ToolbarProvider");

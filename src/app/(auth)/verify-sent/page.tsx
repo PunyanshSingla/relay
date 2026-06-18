@@ -40,22 +40,32 @@ function VerifySentContent() {
           email: email.toLowerCase(),
           redirectTo: "/reset-password",
         });
-        if (error) throw error;
+        if (error) {
+          const message = error instanceof Error ? error.message : "Failed to resend. Please try again.";
+          setResendStatus(message);
+          setIsResending(false);
+          return;
+        }
         setResendStatus("Password reset link resent successfully. Check your inbox and console.");
       } else {
         const { error } = await authClient.sendVerificationEmail({
           email: email.toLowerCase(),
           callbackURL: "/dashboard",
         });
-        if (error) throw error;
+        if (error) {
+          const message = error instanceof Error ? error.message : "Failed to resend. Please try again.";
+          setResendStatus(message);
+          setIsResending(false);
+          return;
+        }
         setResendStatus("Verification email resent successfully. Check your inbox and console.");
       }
       setResendTimer(30);
+      setIsResending(false);
     } catch (err: unknown) {
       console.error("Resend error:", err);
       const message = err instanceof Error ? err.message : "Failed to resend. Please try again.";
       setResendStatus(message);
-    } finally {
       setIsResending(false);
     }
   };
@@ -152,6 +162,7 @@ function VerifySentContent() {
                   </span>
                 ) : (
                   <button
+                    type="button"
                     onClick={handleResend}
                     disabled={isResending}
                     className="font-semibold text-primary hover:underline focus:outline-none"

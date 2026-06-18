@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Pencil, RefreshCw, CheckCheck, X, Star, Paperclip } from "lucide-react";
 import { toast } from "sonner";
@@ -19,19 +19,20 @@ import type { Email, FilterOption } from "@/types/email";
 
 type FilterId = "all" | "unread" | "P1" | "P2" | "P3" | "trash" | "sent" | "spam" | "starred";
 
-export default function InboxPage() {
+export default function InboxPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex h-full items-center justify-center"><div className="text-sm text-muted-foreground">Loading inbox...</div></div>}>
+      <InboxPage />
+    </Suspense>
+  );
+}
+
+function InboxPage() {
   const router = useRouter();
   const { syncState } = useSyncStatus();
   const searchParams = useSearchParams();
   const urlFilter = searchParams.get("filter") as FilterId | null;
-  const [activeFilter, setActiveFilter] = useState<FilterId>(urlFilter || "all");
-
-  // Sync filter from URL
-  useEffect(() => {
-    if (urlFilter && urlFilter !== activeFilter) {
-      setActiveFilter(urlFilter);
-    }
-  }, [urlFilter]);
+  const activeFilter = urlFilter || "all";
 
   const sender = searchParams.get("sender") ?? undefined;
 
@@ -65,18 +66,17 @@ export default function InboxPage() {
         { id: "P3", label: "P3 Low", count: counts?.P3 ?? 0 },
       ];
 
-  const handleFilterChange = useCallback((filter: FilterId) => {
-    setActiveFilter(filter);
+  const handleFilterChange = (filter: FilterId) => {
     if (filter === "all") {
       router.push("/dashboard/inbox");
     } else {
       router.push(`/dashboard/inbox?filter=${filter}`);
     }
-  }, [router]);
+  };
 
   const [syncing, setSyncing] = useState(false);
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = async () => {
     if (syncing) return;
     setSyncing(true);
     try {
@@ -86,12 +86,12 @@ export default function InboxPage() {
       } else {
         toast.error("Failed to trigger sync");
       }
+      setSyncing(false);
     } catch {
       toast.error("Failed to trigger sync");
-    } finally {
       setSyncing(false);
     }
-  }, [syncing]);
+  };
 
   // Revalidate emails when sync finishes
   useEffect(() => {
@@ -143,10 +143,11 @@ export default function InboxPage() {
   // Prefetch top 3 email details so clicking feels instant
   useEffect(() => {
     if (emails.length === 0) return;
+    const controller = new AbortController();
     const top3 = emails.slice(0, 3);
     for (const email of top3) {
       const key = `/api/emails/${email.id}`;
-      fetch(key)
+      fetch(key, { signal: controller.signal })
         .then((r) => r.json())
         .then((data) => {
           if (data?.email) {
@@ -155,9 +156,10 @@ export default function InboxPage() {
         })
         .catch(() => {});
     }
+    return () => controller.abort();
   }, [emails]);
 
-  const handleToggleStar = useCallback(async (id: string) => {
+  const handleToggleStar = async (id: string) => {
     const email = emails.find((e) => e.id === id);
     if (!email) return;
     const newStarred = !email.starred;
@@ -185,10 +187,13 @@ export default function InboxPage() {
     } catch {
       mutate();
     }
-  }, [emails, mutate]);
+  };
 
-  const handleMarkAllRead = useCallback(async () => {
-    const unreadIds = emails.filter((e) => !e.read).map((e) => e.id);
+  const handleMarkAllRead = async () => {
+    const unreadIds: string[] = [];
+    for (const e of emails) {
+      if (!e.read) unreadIds.push(e.id);
+    }
     if (unreadIds.length === 0) return;
 
     mutate(
@@ -218,7 +223,7 @@ export default function InboxPage() {
     } catch {
       mutate();
     }
-  }, [emails, mutate]);
+  };
 
   const isPriorityMode = activeFilter === "all";
 
@@ -274,6 +279,7 @@ export default function InboxPage() {
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
             {sender}
             <button
+              type="button"
               onClick={() => router.push("/dashboard/inbox")}
               className="ml-0.5 hover:text-primary/70 transition-colors"
             >
@@ -487,6 +493,7 @@ function EmailItemCompact({
 
   return (
     <button
+      type="button"
       onClick={() => onSelect(email.id)}
       className={cn(
         "flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border",
@@ -558,6 +565,7 @@ function EmailItemCompact({
       {/* Right side */}
       <div className="flex flex-col items-end gap-1 shrink-0">
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onToggleStar(email.id);

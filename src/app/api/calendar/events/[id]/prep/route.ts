@@ -13,8 +13,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
-  const body = await request.json().catch(() => null);
+  const [{ id }, body] = await Promise.all([params, request.json().catch(() => null)]);
 
   if (!body?.summary) {
     return NextResponse.json({ error: "summary is required" }, { status: 400 });

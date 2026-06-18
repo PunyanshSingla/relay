@@ -35,6 +35,7 @@ export default function RegisterPage() {
 
       if (signUpError) {
         setError(signUpError.message || "Something went wrong. Please try again.");
+        setLoading(false);
         return;
       }
 
@@ -42,7 +43,6 @@ export default function RegisterPage() {
     } catch (err) {
       console.error("Sign up unexpected error:", err);
       setError("An unexpected error occurred. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
@@ -59,10 +59,10 @@ export default function RegisterPage() {
       if (socialError) {
         setError(socialError.message || "Google sign-in failed. Please try again.");
       }
+      setGoogleLoading(false);
     } catch (err) {
       console.error("Google sign-in unexpected error:", err);
       setError("Google sign-in failed. Please try again.");
-    } finally {
       setGoogleLoading(false);
     }
   };

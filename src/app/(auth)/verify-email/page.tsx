@@ -24,6 +24,9 @@ function VerifyEmailContent() {
 
   // Auto-verify if token is present in URL
   useEffect(() => {
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
     const autoVerifyToken = async (verifyToken: string) => {
       setIsLoading(true);
       setErrorMessage(null);
@@ -32,28 +35,38 @@ function VerifyEmailContent() {
           query: { token: verifyToken },
         });
 
+        if (cancelled) return;
+
         if (verifyError) {
           setErrorMessage(
             verifyError.message || "Failed to verify email. The link may be expired."
           );
+          if (!cancelled) setIsLoading(false);
           return;
         }
 
         setIsSuccess(true);
-        setTimeout(() => {
-          router.push("/dashboard");
+        if (!cancelled) setIsLoading(false);
+        timeoutId = setTimeout(() => {
+          if (!cancelled) router.push("/dashboard");
         }, 2000);
       } catch (err) {
-        console.error("Auto verify unexpected error:", err);
-        setErrorMessage("An unexpected error occurred during email verification.");
-      } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          console.error("Auto verify unexpected error:", err);
+          setErrorMessage("An unexpected error occurred during email verification.");
+          setIsLoading(false);
+        }
       }
     };
 
     if (token) {
       autoVerifyToken(token);
     }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [token, router]);
 
   useEffect(() => {
@@ -76,15 +89,16 @@ function VerifyEmailContent() {
 
       if (resendError) {
         setErrorMessage(resendError.message || "Failed to resend verification email.");
+        setIsResending(false);
         return;
       }
 
       setResendTimer(30);
       setResendStatus("New verification link sent. Check your inbox and terminal console.");
+      setIsResending(false);
     } catch (err) {
       console.error("Resend verification unexpected error:", err);
       setErrorMessage("Failed to resend verification email.");
-    } finally {
       setIsResending(false);
     }
   };
@@ -175,6 +189,7 @@ function VerifyEmailContent() {
                     </span>
                   ) : (
                     <button
+                      type="button"
                       onClick={handleResend}
                       disabled={isResending}
                       className="font-semibold text-primary hover:underline focus:outline-none"

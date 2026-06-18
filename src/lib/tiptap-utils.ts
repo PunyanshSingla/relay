@@ -7,7 +7,7 @@ export function isValidUrl(url: string) {
   return /^https?:\/\/\S+$/.test(url);
 }
 
-export const duplicateContent = (editor: Editor) => {
+const duplicateContent = (editor: Editor) => {
   const { view } = editor;
   const { state } = view;
   const { selection } = state;
@@ -40,6 +40,6 @@ export function getUrlFromString(str: string) {
   }
 }
 
-export function absoluteUrl(path: string) {
+function absoluteUrl(path: string) {
   return `${process.env.NEXT_PUBLIC_APP_URL}${path}`;
 }

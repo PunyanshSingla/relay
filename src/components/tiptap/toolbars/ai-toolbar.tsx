@@ -117,10 +117,13 @@ export function AiToolbar({ editor, context }: AiToolbarProps) {
           customImprovePrompt,
         );
         replaceText(result, hasSelection, from, to);
+        setLoading(null);
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (err instanceof DOMException && err.name === "AbortError") {
+          setLoading(null);
+          return;
+        }
         console.error("[ai-toolbar] Error:", err);
-      } finally {
         setLoading(null);
       }
     },

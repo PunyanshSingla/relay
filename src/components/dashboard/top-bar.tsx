@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Bell, Command, PanelLeftClose, PanelLeftOpen, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,21 +31,25 @@ export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollaps
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const doSearch = useCallback(async (q: string) => {
+  const doSearch = async (q: string) => {
     if (!q.trim()) return;
     setSearchLoading(true);
     setShowResults(true);
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        setSearchResults([]);
+        setSearchLoading(false);
+        return;
+      }
       const data = await res.json();
       setSearchResults(data.emails ?? []);
+      setSearchLoading(false);
     } catch {
       setSearchResults([]);
-    } finally {
       setSearchLoading(false);
     }
-  }, []);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") doSearch(searchQuery);
@@ -105,10 +109,12 @@ export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollaps
             onKeyDown={handleKeyDown}
             onFocus={() => searchResults.length > 0 && setShowResults(true)}
             placeholder="Search with AI..."
+            aria-label="Search"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => {
                 setSearchQuery("");
                 setSearchResults([]);
@@ -142,6 +148,7 @@ export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollaps
                 </div>
                 {searchResults.map((email) => (
                   <button
+                    type="button"
                     key={email.id}
                     onClick={() => {
                       setShowResults(false);

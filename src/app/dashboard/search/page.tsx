@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, ArrowLeft, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ function SearchContent() {
   const [searched, setSearched] = useState(!!initialQuery);
   const [error, setError] = useState<string | null>(null);
 
-  const doSearch = useCallback(async (q: string) => {
+  const doSearch = async (q: string) => {
     if (!q.trim()) return;
     setLoading(true);
     setSearched(true);
@@ -29,15 +29,19 @@ function SearchContent() {
 
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
-      if (!res.ok) throw new Error("Search failed");
+      if (!res.ok) {
+        setError("Search failed. Try a different query.");
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       setEmails(data.emails ?? []);
+      setLoading(false);
     } catch {
       setError("Search failed. Try a different query.");
-    } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") doSearch(query);

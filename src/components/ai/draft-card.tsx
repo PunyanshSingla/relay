@@ -32,21 +32,13 @@ export function DraftCard({
   isStreaming,
 }: DraftCardProps) {
   const [editing, setEditing] = useState(false);
+  const [localBody, setLocalBody] = useState(draft.body);
   const [to, setTo] = useState(draft.to);
   const [subject, setSubject] = useState(draft.subject);
-  const [body, setBody] = useState(draft.body);
   const [sending, setSending] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
   const editorRef = useRef<ComposeEditorRef>(null);
   const lastStreamedBody = useRef(draft.body);
-
-  useEffect(() => {
-    setTo(draft.to);
-  }, [draft.to]);
-
-  useEffect(() => {
-    setSubject(draft.subject);
-  }, [draft.subject]);
 
   useEffect(() => {
     if (draft.body && draft.body !== lastStreamedBody.current) {
@@ -54,15 +46,15 @@ export function DraftCard({
       if (!editing && editorRef.current) {
         editorRef.current.setContent(draft.body);
       }
-      setBody(draft.body);
+      setLocalBody(draft.body);
     }
   }, [draft.body, editing]);
 
   useEffect(() => {
-    if (!isStreaming && editorRef.current && body) {
-      editorRef.current.setContent(body);
+    if (!isStreaming && editorRef.current && localBody) {
+      editorRef.current.setContent(localBody);
     }
-  }, [isStreaming, body]);
+  }, [isStreaming, localBody]);
 
   const handleSend = async () => {
     if (!confirmSend) {
@@ -73,7 +65,7 @@ export function DraftCard({
 
     setSending(true);
     const html =
-      editing && editorRef.current ? editorRef.current.getHTML() : body;
+      editing && editorRef.current ? editorRef.current.getHTML() : localBody;
     await onSend({ ...draft, to, subject, body: html });
     setSending(false);
     setConfirmSend(false);
@@ -81,7 +73,7 @@ export function DraftCard({
 
   const handleToggleEdit = () => {
     if (!editing && editorRef.current) {
-      editorRef.current.setContent(body);
+      editorRef.current.setContent(localBody);
     }
     setEditing(!editing);
   };
@@ -148,16 +140,16 @@ export function DraftCard({
       <div className="px-3 py-2 min-h-[80px] max-h-[300px] overflow-y-auto">
         {editing || isStreaming ? (
           <div className="min-h-[120px]">
-            <ComposeEditor
+              <ComposeEditor
               ref={editorRef}
-              content={body || ""}
-              onChange={setBody}
+              content={localBody || ""}
+              onChange={setLocalBody}
             />
           </div>
         ) : (
           <div
             className="text-xs text-muted-foreground prose prose-xs max-w-none"
-            dangerouslySetInnerHTML={{ __html: body }}
+              dangerouslySetInnerHTML={{ __html: localBody }}
           />
         )}
       </div>

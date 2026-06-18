@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { X, Plus, Video, Bell, Repeat } from "lucide-react";
 import {
@@ -156,42 +156,45 @@ interface CreateEventDialogProps {
   onSaved?: () => void;
 }
 
+function getFormFromEditEvent(editEvent: CreateEventDialogProps["editEvent"]): EventFormData {
+  if (!editEvent) {
+    return getInitialFormData();
+  }
+  const s = editEvent.start?.dateTime ?? editEvent.start?.date;
+  const e = editEvent.end?.dateTime ?? editEvent.end?.date;
+  const sd = s ? new Date(s) : new Date();
+  const ed = e ? new Date(e) : new Date(sd.getTime() + 60 * 60 * 1000);
+  const isAllDay = !!editEvent.start?.date && !editEvent.start?.dateTime;
+
+  return {
+    summary: editEvent.summary ?? "",
+    description: editEvent.description ?? "",
+    location: editEvent.location ?? "",
+    startDate: toDateInputValue(sd),
+    startTime: isAllDay ? "" : toTimeInputValue(sd),
+    endDate: toDateInputValue(ed),
+    endTime: isAllDay ? "" : toTimeInputValue(ed),
+    attendees: editEvent.attendees?.flatMap((a) => a.email ? [a.email] : []) ?? [],
+    colorId: editEvent.colorId ?? "",
+    addMeet: false,
+    useDefaultReminders: false,
+    reminders: [{ method: "popup", minutes: 10 }],
+    recurrence: "",
+  };
+}
+
 export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, onSaved }: CreateEventDialogProps) {
   const isEditing = !!editEvent;
-  const [form, setForm] = useState<EventFormData>(() => getInitialFormData(prefillDate));
+  const [form, setForm] = useState<EventFormData>(() => editEvent ? getFormFromEditEvent(editEvent) : getInitialFormData(prefillDate));
   const [newAttendee, setNewAttendee] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [prevEditEvent, setPrevEditEvent] = useState(editEvent);
 
-  useEffect(() => {
-    if (!open) return;
-
-    if (editEvent) {
-      const s = editEvent.start?.dateTime ?? editEvent.start?.date;
-      const e = editEvent.end?.dateTime ?? editEvent.end?.date;
-      const sd = s ? new Date(s) : new Date();
-      const ed = e ? new Date(e) : new Date(sd.getTime() + 60 * 60 * 1000);
-      const isAllDay = !!editEvent.start?.date && !editEvent.start?.dateTime;
-
-      setForm({
-        summary: editEvent.summary ?? "",
-        description: editEvent.description ?? "",
-        location: editEvent.location ?? "",
-        startDate: toDateInputValue(sd),
-        startTime: isAllDay ? "" : toTimeInputValue(sd),
-        endDate: toDateInputValue(ed),
-        endTime: isAllDay ? "" : toTimeInputValue(ed),
-        attendees: editEvent.attendees?.map((a) => a.email ?? "").filter(Boolean) ?? [],
-        colorId: editEvent.colorId ?? "",
-        addMeet: false,
-        useDefaultReminders: false,
-        reminders: [{ method: "popup", minutes: 10 }],
-        recurrence: "",
-      });
-    } else {
-      setForm(getInitialFormData(prefillDate));
-    }
+  if (editEvent !== prevEditEvent) {
+    setPrevEditEvent(editEvent);
+    setForm(getFormFromEditEvent(editEvent));
     setNewAttendee("");
-  }, [open, editEvent, prefillDate]);
+  }
 
   const update = <K extends keyof EventFormData>(key: K, value: EventFormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -327,9 +330,9 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
       toast.success(isEditing ? "Event updated" : "Event created");
       onOpenChange(false);
       onSaved?.();
+      setSubmitting(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
-    } finally {
       setSubmitting(false);
     }
   };
@@ -465,7 +468,7 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
                     className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs"
                   >
                     {email}
-                    <button onClick={() => removeAttendee(email)} className="hover:text-primary/70">
+                    <button type="button" onClick={() => removeAttendee(email)} className="hover:text-primary/70">
                       <X className="size-3" />
                     </button>
                   </span>
@@ -489,6 +492,7 @@ export function CreateEventDialog({ open, onOpenChange, prefillDate, editEvent, 
                   )}
                   style={{ backgroundColor: c.color }}
                   title={c.name}
+                  aria-label={c.name}
                 />
               ))}
             </div>

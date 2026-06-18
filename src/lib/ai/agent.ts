@@ -244,7 +244,9 @@ export async function runAgentStream(
         }
       }
     }
-  } finally {
+  } catch (err) {
     reader.releaseLock();
+    throw err;
   }
+  reader.releaseLock();
 }

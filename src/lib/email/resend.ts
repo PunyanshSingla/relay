@@ -41,7 +41,7 @@ export interface SendEmailOptions {
 /**
  * Send an email with retry logic
  */
-export async function sendEmail({ to, subject, html }: SendEmailOptions) {
+async function sendEmail({ to, subject, html }: SendEmailOptions) {
   if (!resend) {
     if (!isProduction) {
       console.log("----------------------------------------------------------------");

@@ -92,8 +92,7 @@ export async function GET(
     // Fetch calendar events with this contact as attendee
     let meetings: CalendarEvent[] = [];
     try {
-      await ensureCorsairSetup();
-      await ensureTenant(session.user.id);
+      await Promise.all([ensureCorsairSetup(), ensureTenant(session.user.id)]);
       const tenant = corsair.withTenant(session.user.id);
 
       const now = new Date();
@@ -240,18 +239,19 @@ function computeAvgResponseTime(
   // and compute the time difference
   const responseTimes: number[] = [];
 
-  const sortedReceived = [...received].sort(
+  const sortedReceived = received.toSorted(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
   );
-  const sortedSent = [...sent].sort(
+  const sortedSent = sent.toSorted(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
   );
 
+  let sentIdx = 0;
   for (const recv of sortedReceived) {
-    // Find the first sent email after this received email
-    const reply = sortedSent.find(
-      (s) => s.timestamp.getTime() > recv.timestamp.getTime()
-    );
+    while (sentIdx < sortedSent.length && sortedSent[sentIdx].timestamp.getTime() <= recv.timestamp.getTime()) {
+      sentIdx++;
+    }
+    const reply = sentIdx < sortedSent.length ? sortedSent[sentIdx] : undefined;
     if (reply) {
       const diffMs = reply.timestamp.getTime() - recv.timestamp.getTime();
       // Only count if within 7 days (reasonable response window)

@@ -38,7 +38,7 @@ export function ChatMessage({
 }: ChatMessageProps) {
   const isUser = role === "user";
   const [editing, setEditing] = useState(false);
-  const [editContent, setEditContent] = useState(content);
+  const [editContent, setEditContent] = useState(() => content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleStartEdit = () => {
@@ -56,7 +56,6 @@ export function ChatMessage({
 
   const handleCancelEdit = () => {
     setEditing(false);
-    setEditContent(content);
   };
 
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
@@ -72,6 +71,15 @@ export function ChatMessage({
   const showActions =
     !isStreaming && content && !editing;
 
+  const visibleToolCalls = toolCalls
+    ? toolCalls.filter(
+        (tc) =>
+          tc.name !== "draft_email" &&
+          tc.name !== "draft_reply" &&
+          tc.result !== undefined
+      )
+    : [];
+
   return (
     <div className={cn("flex gap-3 px-4 group", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
@@ -84,16 +92,9 @@ export function ChatMessage({
         {/* Tool calls (non-draft, non-send) */}
         {toolCalls && toolCalls.length > 0 && (
           <div className="space-y-1.5">
-            {toolCalls
-              .filter(
-                (tc) =>
-                  tc.name !== "draft_email" &&
-                  tc.name !== "draft_reply" &&
-                  tc.result !== undefined
-              )
-              .map((tc, i) => (
-                <ToolCallCard key={i} toolCall={tc} />
-              ))}
+            {visibleToolCalls.map((tc, i) => (
+              <ToolCallCard key={`${tc.name}-${i}`} toolCall={tc} />
+            ))}
           </div>
         )}
 

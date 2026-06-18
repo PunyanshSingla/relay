@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Sparkles,
   ChevronDown,
@@ -12,6 +12,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 interface EmailSummary {
   summary: string;
@@ -32,52 +35,29 @@ const SENTIMENT_CONFIG = {
 };
 
 export function EmailSummaryPanel({ emailId }: EmailSummaryPanelProps) {
-  const [summary, setSummary] = useState<EmailSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
-  const [fetched, setFetched] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
-  useEffect(() => {
-    if (fetched) return;
-    setLoading(true);
-    setError(null);
+  const { data, isLoading, mutate } = useSWR(`/api/emails/${emailId}/summary`, fetcher, {
+    revalidateOnFocus: false,
+  });
 
-    fetch(`/api/emails/${emailId}/summary`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load summary");
-        return res.json();
-      })
-      .then((data) => {
-        setSummary(data.summary);
-        setFetched(true);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to load summary");
-      })
-      .finally(() => setLoading(false));
-  }, [emailId, fetched]);
+  const summary = data?.summary as EmailSummary | null;
 
   const regenerate = async () => {
-    setLoading(true);
-    setError(null);
+    setRegenerating(true);
     try {
-      const res = await fetch(`/api/emails/${emailId}/summary`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to regenerate");
-      const data = await res.json();
-      setSummary(data.summary);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to regenerate");
-    } finally {
-      setLoading(false);
+      await fetch(`/api/emails/${emailId}/summary`, { method: "POST" });
+      mutate();
+      setRegenerating(false);
+    } catch {
+      setRegenerating(false);
     }
   };
 
-  // Don't show panel if not loaded yet and not loading
-  if (!loading && !summary && !error) return null;
+  if (!isLoading && !summary) return null;
 
   const sentimentConfig = summary ? SENTIMENT_CONFIG[summary.sentiment] : null;
-  const SentimentIcon = sentimentConfig?.icon;
 
   return (
     <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
@@ -95,17 +75,17 @@ export function EmailSummaryPanel({ emailId }: EmailSummaryPanelProps) {
           </span>
         )}
 
-        {loading && (
+        {isLoading && (
           <Loader2 className="size-3.5 animate-spin text-muted-foreground ml-auto" />
         )}
 
-        {!loading && summary && (
+        {!isLoading && summary && (
           <button
             onClick={(e) => { e.stopPropagation(); regenerate(); }}
             className="ml-auto p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title="Regenerate summary"
           >
-            <RefreshCw className="size-3" />
+            <RefreshCw className={cn("size-3", regenerating && "animate-spin")} />
           </button>
         )}
 
@@ -119,15 +99,11 @@ export function EmailSummaryPanel({ emailId }: EmailSummaryPanelProps) {
       {/* Content */}
       {expanded && (
         <div className="px-3 pb-3 space-y-3">
-          {loading && !summary && (
+          {isLoading && !summary && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
               <Loader2 className="size-4 animate-spin" />
               Generating summary...
             </div>
-          )}
-
-          {error && !summary && (
-            <div className="text-sm text-destructive py-2">{error}</div>
           )}
 
           {summary && (

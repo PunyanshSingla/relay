@@ -13,10 +13,16 @@ export default function OnboardingPage() {
   const [status, setStatus] = useState<{ gmail: boolean; calendar: boolean } | null>(null);
 
   useEffect(() => {
-    fetch("/api/connect/status")
+    const controller = new AbortController();
+    fetch("/api/connect/status", { signal: controller.signal })
       .then((r) => r.json())
       .then(setStatus)
-      .catch(() => setStatus({ gmail: false, calendar: false }));
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setStatus({ gmail: false, calendar: false });
+        }
+      });
+    return () => controller.abort();
   }, []);
 
   const handleConnectBoth = () => {

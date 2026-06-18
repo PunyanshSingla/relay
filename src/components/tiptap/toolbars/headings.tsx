@@ -21,10 +21,7 @@ import { MobileToolbarGroup, MobileToolbarItem } from "./mobile-toolbar-group";
 
 const levels = [1, 2, 3, 4] as const;
 
-export const HeadingsToolbar = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, ...props }, ref) => {
+export function HeadingsToolbar({ className, ref, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { ref?: React.Ref<HTMLButtonElement> }) {
   const { editor } = useToolbar();
   const isMobile = useMediaQuery("(max-width: 640px)");
   const activeLevel = levels.find((level) =>
@@ -105,6 +102,4 @@ export const HeadingsToolbar = React.forwardRef<
       </TooltipContent>
     </Tooltip>
   );
-});
-
-HeadingsToolbar.displayName = "HeadingsToolbar";
+}

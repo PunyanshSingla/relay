@@ -31,7 +31,7 @@ function buildContextBlock(ctx?: ComposeContext): string {
   return parts.length > 0 ? `\n\nEmail context:\n${parts.join("\n")}` : "";
 }
 
-export async function suggestCompletion(
+async function suggestCompletion(
   text: string,
   context?: ComposeContext,
 ): Promise<string> {

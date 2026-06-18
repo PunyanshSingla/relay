@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Users, RefreshCw, Star, Zap, Clock, SearchX } from "lucide-react";
+import { useState } from "react";
+import { Users, Star, Zap, Clock, SearchX, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ContactItem, ContactSkeletonList } from "@/components/contacts/contact-item";
 import { ContactsFilterBar, type ContactFilterId } from "@/components/contacts/filter-bar";
-import { cn } from "@/lib/utils";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 interface ContactData {
   id: string;
@@ -28,37 +30,15 @@ interface Counts {
 }
 
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState<ContactData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<ContactFilterId>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [counts, setCounts] = useState<Counts>({ total: 0, vip: 0, frequent: 0, recent: 0 });
 
-  const fetchContacts = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/contacts");
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to fetch contacts");
-      }
-      const data = await response.json();
-      setContacts(data.contacts);
-      setCounts(data.counts);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch contacts");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, error, isLoading, mutate } = useSWR<{ contacts: ContactData[]; counts: Counts }>("/api/contacts", fetcher);
 
-  useEffect(() => {
-    fetchContacts();
-  }, [fetchContacts]);
+  const contacts = data?.contacts ?? [];
+  const counts = data?.counts ?? { total: 0, vip: 0, frequent: 0, recent: 0 };
 
-  const filteredContacts = useMemo(() => {
+  const filteredContacts = (() => {
     let result = contacts;
 
     if (activeFilter === "vip") {
@@ -84,9 +64,9 @@ export default function ContactsPage() {
     }
 
     return result;
-  }, [contacts, activeFilter, searchQuery]);
+  })();
 
-  const computedCounts = useMemo(() => {
+  const computedCounts = (() => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     return {
@@ -98,7 +78,7 @@ export default function ContactsPage() {
         return new Date(c.lastInteraction) >= thirtyDaysAgo;
       }).length,
     };
-  }, [contacts]);
+  })();
 
   const filters = [
     { id: "all" as ContactFilterId, label: "All", count: computedCounts.all },
@@ -131,8 +111,8 @@ export default function ContactsPage() {
             )}
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={fetchContacts} disabled={loading}>
-          <RefreshCw className={cn("size-4 mr-1", loading && "animate-spin")} />
+        <Button variant="ghost" size="sm" onClick={() => mutate()} disabled={isLoading}>
+          <RefreshCw className={isLoading ? "animate-spin size-4 mr-1" : "size-4 mr-1"} />
           Refresh
         </Button>
       </div>
@@ -155,7 +135,7 @@ export default function ContactsPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
-        {loading ? (
+        {isLoading ? (
           <div className="h-full overflow-y-auto">
             <ContactSkeletonList count={6} />
           </div>

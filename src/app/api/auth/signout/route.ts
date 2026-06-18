@@ -33,12 +33,14 @@ export async function POST() {
       const accountIds = accounts.map((a) => a.id);
 
       if (accountIds.length > 0) {
-        await prisma.corsairEntity.deleteMany({
-          where: { accountId: { in: accountIds } },
-        });
-        await prisma.corsairEvent.deleteMany({
-          where: { accountId: { in: accountIds } },
-        });
+        await Promise.all([
+          prisma.corsairEntity.deleteMany({
+            where: { accountId: { in: accountIds } },
+          }),
+          prisma.corsairEvent.deleteMany({
+            where: { accountId: { in: accountIds } },
+          }),
+        ]);
         await prisma.corsairAccount.deleteMany({
           where: { tenantId },
         });

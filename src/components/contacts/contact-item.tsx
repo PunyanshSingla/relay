@@ -53,11 +53,14 @@ export function ContactItem({ contact }: ContactItemProps) {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       className={cn(
         "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors border-b border-border hover:bg-muted/30 cursor-pointer",
         contact.vip && "bg-amber-500/[0.02]"
       )}
       onClick={() => router.push(`/dashboard/contacts/${contact.id}`)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/dashboard/contacts/${contact.id}`); } }}
     >
       {/* Avatar */}
       <div

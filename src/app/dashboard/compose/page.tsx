@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -130,14 +130,18 @@ function ComposeContent() {
       return;
     }
 
+    const controller = new AbortController();
+
     async function fetchReplyContext() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/emails/${replyToId}`);
+        const response = await fetch(`/api/emails/${replyToId}`, { signal: controller.signal });
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || "Failed to load email thread context");
+          setError(data.error || "Failed to load email thread context");
+          setLoading(false);
+          return;
         }
         const data = await response.json();
         const original: Email = data.email;
@@ -145,14 +149,16 @@ function ComposeContent() {
         if (original.threadId) {
           setThreadId(original.threadId);
         }
+        setLoading(false);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Failed to load thread details");
-      } finally {
         setLoading(false);
       }
     }
 
     fetchReplyContext();
+    return () => controller.abort();
   }, [replyToId]);
 
   // Parse and pre-populate fields once email context and user session are loaded
@@ -216,7 +222,7 @@ function ComposeContent() {
     }
   }, [originalEmail, mode, user]);
 
-  const addAttachments = useCallback((files: FileList | File[]) => {
+  const addAttachments = (files: FileList | File[]) => {
     const newAttachments: Attachment[] = Array.from(files).map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       name: file.name,
@@ -234,13 +240,13 @@ function ComposeContent() {
     Promise.all(readFiles).then(() => {
       setAttachments((prev) => [...prev, ...newAttachments]);
     });
-  }, []);
+  };
 
-  const removeAttachment = useCallback((id: string) => {
+  const removeAttachment = (id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
-  }, []);
+  };
 
-  const addUrlAttachment = useCallback(() => {
+  const addUrlAttachment = () => {
     if (!urlInput.trim()) return;
     const name = urlInput.split("/").pop()?.split("?")[0] ?? "attachment";
     const mimeType = guessMimeType(name);
@@ -256,12 +262,12 @@ function ComposeContent() {
     ]);
     setUrlInput("");
     setShowUrlInput(false);
-  }, [urlInput]);
+  };
 
   const totalSize = attachments.reduce((sum, a) => sum + a.size, 0);
   const MAX_SIZE = 25 * 1024 * 1024;
 
-  const handleSend = useCallback(async () => {
+  const handleSend = async () => {
     if (!to.trim()) {
       setError("Please enter a recipient");
       return;
@@ -307,16 +313,18 @@ function ComposeContent() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send email");
+        setError(data.error || "Failed to send email");
+        setSending(false);
+        return;
       }
 
       router.push("/dashboard/inbox");
+      setSending(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send email");
-    } finally {
       setSending(false);
     }
-  }, [to, cc, bcc, subject, bodyHtml, attachments, threadId, router]);
+  };
 
   if (loading) {
     return (
@@ -355,15 +363,16 @@ function ComposeContent() {
         {/* Sender details and Recipient fields */}
         <div className="flex flex-col bg-card shrink-0">
           <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-            <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">From</label>
-            <span className="text-sm text-foreground">
+            <label htmlFor="page-from" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">From</label>
+            <span id="page-from" className="text-sm text-foreground">
               {user ? `${user.name || "You"} <${user.email}>` : "You <you@email.com>"}
             </span>
           </div>
 
           <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-            <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">To</label>
+            <label htmlFor="page-to" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">To</label>
             <Input
+              id="page-to"
               value={to}
               onChange={(e) => setTo(e.target.value)}
               placeholder="recipient@email.com"
@@ -386,8 +395,9 @@ function ComposeContent() {
           {showCcBcc && (
             <>
               <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-                <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Cc</label>
+                <label htmlFor="page-cc" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Cc</label>
                 <Input
+                  id="page-cc"
                   value={cc}
                   onChange={(e) => setCc(e.target.value)}
                   placeholder="cc@email.com"
@@ -405,8 +415,9 @@ function ComposeContent() {
                 </Button>
               </div>
               <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-                <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Bcc</label>
+                <label htmlFor="page-bcc" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Bcc</label>
                 <Input
+                  id="page-bcc"
                   value={bcc}
                   onChange={(e) => setBcc(e.target.value)}
                   placeholder="bcc@email.com"
@@ -417,8 +428,9 @@ function ComposeContent() {
           )}
 
           <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border">
-            <label className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Subject</label>
+            <label htmlFor="page-subject" className="text-sm text-muted-foreground w-16 shrink-0 font-medium">Subject</label>
             <Input
+              id="page-subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Subject"

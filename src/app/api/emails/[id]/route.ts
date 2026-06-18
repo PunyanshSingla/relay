@@ -92,31 +92,24 @@ export async function GET(
 
         // Extract HTML body
         if (parts) {
-          for (const part of parts) {
-            if (part.mimeType === "text/html" && part.body?.data) {
-              bodyHtml = Buffer.from(part.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
-              break;
-            }
-            if (part.mimeType === "multipart/alternative") {
-              const subParts = (part as Record<string, unknown>).parts as Array<{
-                mimeType?: string;
-                body?: { data?: string };
-              }> | undefined;
-              const html = subParts?.find((p) => p.mimeType === "text/html");
-              if (html?.body?.data) {
-                bodyHtml = Buffer.from(html.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
-                break;
+          const htmlPart = parts.find((p) => p.mimeType === "text/html");
+          if (htmlPart?.body?.data) {
+            bodyHtml = Buffer.from(htmlPart.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
+          } else {
+            for (const part of parts) {
+              if (part.mimeType === "multipart/alternative") {
+                const subParts = (part as Record<string, unknown>).parts as Array<{
+                  mimeType?: string;
+                  body?: { data?: string };
+                }> | undefined;
+                const html = subParts?.find((p) => p.mimeType === "text/html");
+                if (html?.body?.data) {
+                  bodyHtml = Buffer.from(html.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
+                  break;
+                }
               }
             }
           }
-        }
-
-        // Cache in DB for next time
-        if (body || bodyHtml) {
-          await prisma.email.update({
-            where: { id },
-            data: { body: body || "", bodyHtml: bodyHtml || null },
-          }).catch(() => {});
         }
       } catch (err) {
         console.error("[email] Failed to fetch full body from Gmail:", err);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Lock, Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ function ResetPasswordContent() {
   const [countdown, setCountdown] = useState(4);
 
   // Password strength logic
-  const passwordStrength = useMemo(() => {
+  const passwordStrength = (() => {
     if (!password) return { score: 0, label: "", colorClass: "bg-muted" };
     
     let score = 0;
@@ -43,7 +43,7 @@ function ResetPasswordContent() {
     }
 
     return { score, label, colorClass };
-  }, [password]);
+  })();
 
   // Handle countdown redirect on success
   useEffect(() => {
@@ -89,14 +89,15 @@ function ResetPasswordContent() {
 
       if (resetError) {
         setError(resetError.message || "Failed to reset password. The link may have expired.");
+        setLoading(false);
         return;
       }
 
       setIsSuccess(true);
+      setLoading(false);
     } catch (err) {
       console.error("Reset password unexpected error:", err);
       setError("An unexpected error occurred. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
