@@ -26,10 +26,13 @@
 - When building new dashboard pages, match the existing UI and design system of all other pages for consistency. Confidence: 0.70
 
 # workflow
-- Plan UI features completely before implementing them — present the plan for approval first. Confidence: 0.65
+- Plan UI features completely before implementing them — present the plan for approval first. Confidence: 0.75
 
 # package-manager
 - Use pnpm for package management (user will install dependencies themselves). Confidence: 0.85
+
+# contacts
+- Contact view should show previous interactions, relationship memory, and rich history — not just a filtered email list by that contact. Confidence: 0.70
 
 # shortcuts
 - Do not use single-letter global keyboard shortcuts (e.g., 'c' for compose) — they interfere with normal typing in input fields. Confidence: 0.70

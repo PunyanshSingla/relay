@@ -11,8 +11,9 @@ import { generateDailyBriefJob } from "@/inngest/functions/generate-daily-brief"
 import { runAutomationsJob } from "@/inngest/functions/run-automations";
 import { detectSequencesJob } from "@/inngest/functions/detect-sequences";
 import { suggestWorkflowsJob } from "@/inngest/functions/suggest-workflows";
+import { updateContactIntelligenceJob } from "@/inngest/functions/update-contact-intelligence";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [syncGmailJob, classifyBatchJob, triggerSyncJob, syncCalendarJob, triggerCalendarSyncJob, generateReplyJob, checkFollowUpsJob, generateDailyBriefJob, runAutomationsJob, detectSequencesJob, suggestWorkflowsJob],
+  functions: [syncGmailJob, classifyBatchJob, triggerSyncJob, syncCalendarJob, triggerCalendarSyncJob, generateReplyJob, checkFollowUpsJob, generateDailyBriefJob, runAutomationsJob, detectSequencesJob, suggestWorkflowsJob, updateContactIntelligenceJob],
 });

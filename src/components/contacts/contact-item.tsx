@@ -57,7 +57,7 @@ export function ContactItem({ contact }: ContactItemProps) {
         "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors border-b border-border hover:bg-muted/30 cursor-pointer",
         contact.vip && "bg-amber-500/[0.02]"
       )}
-      onClick={() => router.push(`/dashboard/inbox?sender=${encodeURIComponent(contact.email)}`)}
+      onClick={() => router.push(`/dashboard/contacts/${contact.id}`)}
     >
       {/* Avatar */}
       <div
