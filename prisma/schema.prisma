@@ -149,6 +149,7 @@ model Email {
   needsReply      Boolean?
   generatedReply  String?         @db.Text
   replyMode       String?
+  summary         String?         @db.Text
   isSent            Boolean         @default(false)
   followUpEligibleAt DateTime?
   followUpCheckedAt  DateTime?

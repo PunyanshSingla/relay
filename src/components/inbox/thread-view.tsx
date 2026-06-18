@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import DOMPurify from "dompurify";
 import { AIReplyPanel } from "./ai-reply-panel";
+import { EmailSummaryPanel } from "./email-summary-panel";
 import { Badge } from "@/components/ui/badge";
 import type { Email, Priority, Category } from "@/types/email";
 import { formatDistanceToNow } from "@/lib/format-date";
@@ -209,6 +210,11 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
             ))}
           </div>
         )}
+
+        {/* AI Summary */}
+        <div className="mt-4">
+          <EmailSummaryPanel emailId={email.id} />
+        </div>
 
         {/* Thread replies */}
         {email.replies.length > 0 && (
