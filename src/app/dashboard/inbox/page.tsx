@@ -38,15 +38,15 @@ function InboxPage() {
 
   const {
     emails,
-    counts: priorityCounts,
     loading,
     loadingGroups,
+    hasMore,
     isValidating,
     mutate,
+    loadMore,
   } = usePriorityEmailList(activeFilter, sender);
 
-  const { counts: polledCounts } = useEmailCounts(syncState?.phase);
-  const counts = polledCounts ?? priorityCounts;
+  const { counts } = useEmailCounts(syncState?.phase);
 
   const isSpecialFilter = ["trash", "sent", "spam", "starred"].includes(activeFilter);
 
@@ -317,6 +317,9 @@ function InboxPage() {
               }
             }}
             loading={loading}
+            loadingMore={isValidating && emails.length > 0}
+            hasMore={hasMore}
+            onLoadMore={loadMore}
             syncState={syncState}
           />
         ) : (
@@ -327,8 +330,8 @@ function InboxPage() {
             onToggleStar={handleToggleStar}
             loading={loading}
             loadingMore={isValidating && emails.length > 0}
-            hasMore={false}
-            onLoadMore={() => {}}
+            hasMore={hasMore}
+            onLoadMore={loadMore}
             syncState={syncState}
           />
         )}
@@ -347,6 +350,9 @@ function PriorityEmailList({
   onToggleStar,
   onEmptyTrash,
   loading,
+  loadingMore,
+  hasMore,
+  onLoadMore,
   syncState,
 }: {
   emails: Email[];
@@ -356,8 +362,28 @@ function PriorityEmailList({
   onToggleStar: (id: string) => void;
   onEmptyTrash: () => void;
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
   syncState?: { phase: string } | null;
 }) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !loadingMore && !loading) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: "200%" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, onLoadMore]);
+
   const p1Emails = emails.filter((e) => e.priority === "P1");
   const p2Emails = emails.filter((e) => e.priority === "P2");
   const p3Emails = emails.filter((e) => e.priority === "P3");
@@ -436,6 +462,17 @@ function PriorityEmailList({
                 Empty Trash
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Infinite scroll sentinel */}
+        {hasMore && emails.length > 0 && (
+          <div ref={sentinelRef} className="h-4" />
+        )}
+
+        {loadingMore && emails.length > 0 && (
+          <div className="flex justify-center py-4">
+            <RefreshCw className="size-4 animate-spin text-muted-foreground" />
           </div>
         )}
       </div>

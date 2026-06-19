@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Email, Priority, Category } from "@/types/email";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -44,8 +44,7 @@ export async function GET(request: Request) {
       where.from = { contains: sender, mode: "insensitive" };
     }
 
-    const isPriorityFilter = filter === "P1" || filter === "P2" || filter === "P3";
-    const pageSize = isPriorityFilter ? 500 : PAGE_SIZE;
+    const pageSize = PAGE_SIZE;
 
     const query: Record<string, unknown> = {
       where,

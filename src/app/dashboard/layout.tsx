@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { TopBar } from "@/components/dashboard/top-bar";
 import { CommandPalette } from "@/components/dashboard/command-palette";
@@ -14,11 +14,31 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Global keyboard shortcuts (C for compose works everywhere)
-  // Thread-specific shortcuts (R, Shift+R, F, E) are handled in the thread view page
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   useKeyboardShortcuts();
+
+  const toggleSidebar = () => {
+    if (isMobile) {
+      setSidebarOpen((prev) => !prev);
+    } else {
+      setSidebarCollapsed((prev) => !prev);
+    }
+  };
+
+  const closeMobileSidebar = () => {
+    if (isMobile) setSidebarOpen(false);
+  };
 
   return (
     <QueryProvider>
@@ -27,18 +47,21 @@ export default function DashboardLayout({
           {/* Sidebar */}
           <Suspense fallback={<div className="w-64 h-full bg-sidebar border-r border-sidebar-border" />}>
             <Sidebar
-              collapsed={sidebarCollapsed}
-              onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+              collapsed={isMobile ? false : sidebarCollapsed}
+              mobileOpen={sidebarOpen}
+              onToggleCollapse={toggleSidebar}
+              onCloseMobile={closeMobileSidebar}
+              isMobile={isMobile}
             />
           </Suspense>
 
           {/* Main content area */}
-          <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex flex-1 flex-col overflow-hidden min-w-0">
             {/* Top bar */}
             <TopBar
               onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
-              sidebarCollapsed={sidebarCollapsed}
-              onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+              sidebarCollapsed={isMobile ? !sidebarOpen : sidebarCollapsed}
+              onToggleCollapse={toggleSidebar}
             />
 
             {/* Main content */}

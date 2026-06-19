@@ -76,7 +76,7 @@ export function EmailList({
 
     const observer = new IntersectionObserver(handleIntersection, {
       root: null,
-      rootMargin: "200px",
+      rootMargin: "200%",
       threshold: 0,
     });
 

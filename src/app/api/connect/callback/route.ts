@@ -1,7 +1,7 @@
 import { processOAuthCallback, generateOAuthUrl } from "corsair/oauth";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { corsair, ensureCorsairSetup } from "@/lib/corsair";
+import { corsair, ensureCorsairSetup, ensureTenant } from "@/lib/corsair";
 import { inngest } from "@/lib/inngest";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -77,17 +77,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Combined flow: Gmail token now has Calendar scopes too
-    // Process as Gmail, then also setup Calendar
+    // Combined flow: Gmail token has both Gmail + Calendar scopes
+    // processOAuthCallback stores under "gmail" — we must also register under "googlecalendar"
     if (isCombinedFlow) {
-      // The combined OAuth already granted Calendar scopes
-      // We need to also register the Calendar account in Corsair
-      try {
-        const tenant = corsair.withTenant(tenantId ?? "");
-        // Try to get calendar events to verify Calendar access works
-        await tenant.googlecalendar.api.events.getMany({ maxResults: 1 });
-      } catch {
-        // Calendar might need separate setup - that's ok, Gmail is connected
+      if (tenantId) {
+        try {
+          await ensureTenant(tenantId);
+          const tenant = corsair.withTenant(tenantId);
+          const accessToken = await tenant.gmail.keys.get_access_token();
+          const refreshToken = await tenant.gmail.keys.get_refresh_token();
+          const expiresAt = await tenant.gmail.keys.get_expires_at();
+          const scope = await tenant.gmail.keys.get_scope();
+          await tenant.googlecalendar.keys.set_access_token(accessToken);
+          await tenant.googlecalendar.keys.set_refresh_token(refreshToken);
+          await tenant.googlecalendar.keys.set_expires_at(expiresAt);
+          await tenant.googlecalendar.keys.set_scope(scope);
+        } catch (err) {
+          console.error("[callback] Failed to copy tokens to googlecalendar:", err);
+        }
       }
 
       const response = NextResponse.redirect(new URL("/dashboard", request.url));

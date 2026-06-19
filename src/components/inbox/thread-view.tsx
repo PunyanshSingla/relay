@@ -38,6 +38,12 @@ const CATEGORY_CONFIG: Record<Category, { badge: string; label: string }> = {
   social: { badge: "bg-pink-500/10 text-pink-500 border-pink-500/20", label: "Social" },
 };
 
+function decodeHtmlEntities(text: string): string {
+  const el = document.createElement("textarea");
+  el.innerHTML = text;
+  return el.value;
+}
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -99,74 +105,76 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-start justify-between p-4 border-b border-border">
-        <div className="flex items-start gap-3">
-          {/* Avatar */}
-          <div
-            className={cn(
-              "flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-medium",
-              avatarColor
-            )}
-          >
-            {getInitials(email.from.name)}
+      <div className="p-4 border-b border-border">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            {/* Avatar */}
+            <div
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-medium",
+                avatarColor
+              )}
+            >
+              {getInitials(email.from.name)}
+            </div>
+
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-semibold break-words">{decodeHtmlEntities(email.subject)}</h2>
+                <div className={cn("size-2 rounded-full shrink-0", priorityColor)} />
+                {categoryConfig && (
+                  <Badge
+                    variant="outline"
+                    className={cn("text-[10px] px-1.5 py-0 h-5 font-medium shrink-0", categoryConfig.badge)}
+                  >
+                    {categoryConfig.label}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground truncate">{email.from.name}</span>
+                <span className="hidden sm:inline truncate">&lt;{email.from.email}&gt;</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="truncate">To: {email.to.map((t) => t.name).join(", ")}</span>
+                {email.cc && email.cc.length > 0 && (
+                  <span className="hidden sm:inline truncate">· Cc: {email.cc.map((c) => c.name).join(", ")}</span>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">{email.subject}</h2>
-              <div className={cn("size-2 rounded-full", priorityColor)} />
-              {categoryConfig && (
-                <Badge
-                  variant="outline"
-                  className={cn("text-[10px] px-1.5 py-0 h-5 font-medium", categoryConfig.badge)}
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="text-xs text-muted-foreground mr-2 hidden sm:inline">
+              {formatDistanceToNow(email.timestamp)}
+            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => onToggleStar(email.id)}
                 >
-                  {categoryConfig.label}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{email.from.name}</span>
-              <span>&lt;{email.from.email}&gt;</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>To: {email.to.map((t) => t.name).join(", ")}</span>
-              {email.cc && email.cc.length > 0 && (
-                <span>· Cc: {email.cc.map((c) => c.name).join(", ")}</span>
-              )}
-            </div>
+                  <Star
+                    className={cn(
+                      "size-4",
+                      email.starred && "fill-amber-500 text-amber-500"
+                    )}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{email.starred ? "Unstar" : "Star"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>More actions</TooltipContent>
+            </Tooltip>
           </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground mr-2">
-            {formatDistanceToNow(email.timestamp)}
-          </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                onClick={() => onToggleStar(email.id)}
-              >
-                <Star
-                  className={cn(
-                    "size-4",
-                    email.starred && "fill-amber-500 text-amber-500"
-                  )}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{email.starred ? "Unstar" : "Star"}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-8">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>More actions</TooltipContent>
-          </Tooltip>
         </div>
       </div>
 
@@ -246,7 +254,7 @@ export function ThreadView({ email, onToggleStar, onReply, onReplyAll, onForward
       </div>
 
       {/* Action buttons */}
-      <div className="flex items-center gap-2 p-4 border-t border-border">
+      <div className="flex items-center gap-2 p-4 border-t border-border flex-wrap">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="sm" onClick={() => onReply?.(email)}>
