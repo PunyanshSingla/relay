@@ -1,5 +1,5 @@
-import useSWR from "swr";
-import type { Email, Priority } from "@/types/email";
+import useSWRInfinite from "swr/infinite";
+import type { Email } from "@/types/email";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -15,14 +15,8 @@ interface EmailsApiResponse {
   } | null;
 }
 
-interface PriorityGroup {
-  emails: Email[];
-  loaded: boolean;
-}
-
 interface UsePriorityEmailListResult {
   emails: Email[];
-  counts: EmailsApiResponse["counts"];
   loading: boolean;
   loadingGroups: {
     p1: boolean;
@@ -35,94 +29,63 @@ interface UsePriorityEmailListResult {
   loadMore: () => void;
 }
 
+function buildKey(filter: string, sender?: string) {
+  return (_index: number, previousPageData: EmailsApiResponse | null) => {
+    if (previousPageData && !previousPageData.nextCursor) return null;
+    const params = new URLSearchParams({ filter });
+    if (sender) params.set("sender", sender);
+    if (previousPageData?.nextCursor) params.set("cursor", previousPageData.nextCursor);
+    return `/api/emails?${params.toString()}`;
+  };
+}
+
 export function usePriorityEmailList(
   filter: string,
   sender?: string
 ): UsePriorityEmailListResult {
-  const isPriorityMode = filter === "all";
-
-  // ── Priority mode: fetch P1, P2, P3 separately ──
-  const p1Key = isPriorityMode ? buildKey("P1", sender) : null;
-  const p2Key = isPriorityMode ? buildKey("P2", sender) : null;
-  const p3Key = isPriorityMode ? buildKey("P3", sender) : null;
-
-  const { data: p1Data, isValidating: p1Validating } = useSWR<EmailsApiResponse>(
-    p1Key,
+  const {
+    data, size, setSize, isValidating, mutate,
+  } = useSWRInfinite<EmailsApiResponse | undefined>(
+    buildKey(filter, sender),
     fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
-  );
-  const { data: p2Data, isValidating: p2Validating } = useSWR<EmailsApiResponse>(
-    p2Key,
-    fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
-  );
-  const { data: p3Data, isValidating: p3Validating } = useSWR<EmailsApiResponse>(
-    p3Key,
-    fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateFirstPage: false,
+    }
   );
 
-  // ── Non-priority mode: single query (unread, starred, trash, sent, spam, specific priority, etc.) ──
-  const singleKey = !isPriorityMode ? buildKey(filter, sender) : null;
-  const { data: singleData, isValidating: singleValidating } = useSWR<EmailsApiResponse>(
-    singleKey,
-    fetcher,
-    { revalidateOnFocus: false, revalidateOnReconnect: false }
-  );
+  const emails = data ? data.flatMap((page) => page?.emails ?? []) : [];
+  const hasMore = data ? data[data.length - 1]?.nextCursor !== null : true;
+  const loading = !data;
 
-  // ── Combine results ──
-  if (isPriorityMode) {
-    const p1Emails = p1Data?.emails ?? [];
-    const p2Emails = p2Data?.emails ?? [];
-    const p3Emails = p3Data?.emails ?? [];
-
-    const p1Loaded = !!p1Data;
-    const p2Loaded = !!p2Data;
-    const p3Loaded = !!p3Data;
-
-    const emails = [
-      ...p1Emails,
-      ...p2Emails,
-      ...p3Emails,
-    ];
-
-    // Use P1's counts as the source of truth (they're global counts, not per-filter)
-    const p1Counts = p1Data?.counts;
-
-    return {
-      emails,
-      counts: p1Counts
-        ? { total: p1Counts.total, unread: p1Counts.unread, P1: p1Counts.P1, P2: p1Counts.P2, P3: p1Counts.P3 }
-        : null,
-      loading: !p1Data && !p2Data && !p3Data,
-      loadingGroups: {
-        p1: !p1Loaded,
-        p2: !p2Loaded,
-        p3: !p3Loaded,
-      },
-      hasMore: false,
-      isValidating: p1Validating || p2Validating || p3Validating,
-      mutate: () => {},
-      loadMore: () => {},
-    };
-  }
-
-  // ── Single query mode ──
-  return {
-    emails: singleData?.emails ?? [],
-    counts: singleData?.counts ?? null,
-    loading: !singleData,
-    loadingGroups: { p1: false, p2: false, p3: false },
-    hasMore: !!singleData?.nextCursor,
-    isValidating: singleValidating,
-    mutate: () => {},
-    loadMore: () => {},
+  const loadMore = () => {
+    if (hasMore && !isValidating) {
+      setSize(size + 1);
+    }
   };
-}
 
-function buildKey(filter: string, sender?: string): string {
-  const params = new URLSearchParams();
-  params.set("filter", filter);
-  if (sender) params.set("sender", sender);
-  return `/api/emails?${params.toString()}`;
+  // Determine which priority groups have loaded
+  // P1 emails come first due to sort order, then P2, then P3
+  const p1Emails = emails.filter((e) => e.priority === "P1");
+  const p2Emails = emails.filter((e) => e.priority === "P2");
+  const p3Emails = emails.filter((e) => e.priority === "P3");
+
+  // If we have emails and are not loading the first page, all groups are "loaded"
+  // The staggered animation in PriorityEmailList handles the visual reveal
+  const groupsLoaded = emails.length > 0;
+
+  return {
+    emails,
+    loading,
+    loadingGroups: {
+      p1: !groupsLoaded,
+      p2: !groupsLoaded,
+      p3: !groupsLoaded,
+    },
+    hasMore,
+    isValidating,
+    mutate: () => {},
+    loadMore,
+  };
 }

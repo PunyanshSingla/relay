@@ -81,16 +81,16 @@ export function useEmailDetail(id: string | null) {
 }
 
 export function useEmailCounts(phase: string | undefined) {
-  // Poll counts during classifying phase, and keep polling briefly after complete
-  // to catch late DB writes from classification finishing
-  const shouldPoll = phase === "classifying" || phase === "syncing" || phase === "complete";
+  const isSyncing = phase === "classifying" || phase === "syncing" || phase === "complete";
 
   const { data, error } = useSWR<EmailsApiResponse["counts"]>(
-    shouldPoll ? "/api/emails/counts" : null,
+    "/api/emails/counts",
     fetcher,
     {
-      refreshInterval: phase === "classifying" ? 3000 : phase === "complete" ? 5000 : 0,
-      revalidateOnFocus: false,
+      refreshInterval: isSyncing
+        ? phase === "classifying" ? 3000 : 5000
+        : 30000,
+      revalidateOnFocus: true,
     },
   );
 

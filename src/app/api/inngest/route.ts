@@ -8,6 +8,7 @@ import { triggerCalendarSyncJob } from "@/inngest/functions/trigger-calendar-syn
 import { generateReplyJob } from "@/inngest/functions/generate-reply";
 import { checkFollowUpsJob } from "@/inngest/functions/check-follow-ups";
 import { generateDailyBriefJob } from "@/inngest/functions/generate-daily-brief";
+import { generateUserBriefJob } from "@/inngest/functions/generate-user-brief";
 import { runAutomationsJob } from "@/inngest/functions/run-automations";
 import { detectSequencesJob } from "@/inngest/functions/detect-sequences";
 import { suggestWorkflowsJob } from "@/inngest/functions/suggest-workflows";
@@ -15,5 +16,5 @@ import { updateContactIntelligenceJob } from "@/inngest/functions/update-contact
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [syncGmailJob, classifyBatchJob, triggerSyncJob, syncCalendarJob, triggerCalendarSyncJob, generateReplyJob, checkFollowUpsJob, generateDailyBriefJob, runAutomationsJob, detectSequencesJob, suggestWorkflowsJob, updateContactIntelligenceJob],
+  functions: [syncGmailJob, classifyBatchJob, triggerSyncJob, syncCalendarJob, triggerCalendarSyncJob, generateReplyJob, checkFollowUpsJob, generateDailyBriefJob, generateUserBriefJob, runAutomationsJob, detectSequencesJob, suggestWorkflowsJob, updateContactIntelligenceJob],
 });

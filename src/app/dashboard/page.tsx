@@ -19,10 +19,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import useSWR from "swr";
+import { useEffect, useState, useCallback } from "react";
 import { formatDistanceToNow } from "@/lib/format-date";
 import { ACTION_LABELS, type ActionType } from "@/types/automation";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+function decodeHtmlEntities(text: string): string {
+  const el = document.createElement("textarea");
+  el.innerHTML = text;
+  return el.value;
+}
 
 interface Brief {
   summary: string;
@@ -60,7 +67,10 @@ interface Automation {
 }
 
 export default function DashboardPage() {
-  const { data: briefData, isLoading: briefLoading } = useSWR("/api/brief", fetcher, { refreshInterval: 300000 });
+  const [generating, setGenerating] = useState(false);
+  const { data: briefData, isLoading: briefLoading, mutate: mutateBrief } = useSWR("/api/brief", fetcher, {
+    refreshInterval: generating ? 3000 : 300000,
+  });
   const { data: counts } = useSWR<EmailCount>("/api/emails/counts", fetcher, { refreshInterval: 30000 });
   const { data: emailsData, isLoading: emailsLoading } = useSWR("/api/emails?filter=unread", fetcher);
   const { data: eventsData, isLoading: eventsLoading } = useSWR("/api/calendar/events?limit=3", fetcher);
@@ -68,6 +78,30 @@ export default function DashboardPage() {
   const { data: automationsData, mutate: mutateAutomations } = useSWR("/api/automations", fetcher);
 
   const brief = briefData?.brief as Brief | null;
+
+  const triggerBriefGeneration = useCallback(async () => {
+    try {
+      const res = await fetch("/api/brief", { method: "POST" });
+      const data = await res.json();
+      if (data.generating) {
+        setGenerating(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!briefLoading && !brief) {
+      triggerBriefGeneration();
+    }
+  }, [briefLoading, brief, triggerBriefGeneration]);
+
+  useEffect(() => {
+    if (brief && generating) {
+      setGenerating(false);
+    }
+  }, [brief, generating]);
   const recentEmails: RecentEmail[] = (emailsData?.emails ?? [])
     .sort((a: RecentEmail, b: RecentEmail) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 5);
@@ -153,8 +187,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Daily Brief */}
-      {briefLoading ? (
-        <div className="h-32 bg-muted rounded-lg animate-pulse" />
+      {briefLoading || generating ? (
+        <Card className="border-border border-dashed">
+          <CardContent className="py-6 flex flex-col items-center justify-center text-muted-foreground">
+            <Loader2 className="size-6 mb-2 animate-spin" />
+            <p className="text-sm">Generating your brief...</p>
+            <p className="text-xs mt-1">Compiling emails, meetings, and follow-ups.</p>
+          </CardContent>
+        </Card>
       ) : brief ? (
         <Card className="border-border">
           <CardHeader className="pb-3">
@@ -181,8 +221,8 @@ export default function DashboardPage() {
         <Card className="border-border border-dashed">
           <CardContent className="py-6 flex flex-col items-center justify-center text-muted-foreground">
             <Sun className="size-6 mb-2" />
-            <p className="text-sm">No brief for today yet.</p>
-            <p className="text-xs mt-1">Your morning brief will appear here daily at 7:30 AM.</p>
+            <p className="text-sm">No brief available.</p>
+            <p className="text-xs mt-1">Your morning brief is generated daily at 7:30 AM.</p>
           </CardContent>
         </Card>
       )}

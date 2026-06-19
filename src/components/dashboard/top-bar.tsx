@@ -22,6 +22,12 @@ function getInitials(name: string): string {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
+function decodeHtmlEntities(text: string): string {
+  const el = document.createElement("textarea");
+  el.innerHTML = text;
+  return el.value;
+}
+
 export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollapse }: TopBarProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,7 +105,7 @@ export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollaps
       </Tooltip>
 
       {/* Search bar with results dropdown */}
-      <div className="flex-1 max-w-xl relative" ref={wrapperRef}>
+      <div className="flex-1 min-w-0 max-w-xl relative" ref={wrapperRef}>
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
           <Sparkles className="size-4 shrink-0 text-primary" />
           <input
@@ -166,8 +172,8 @@ export function TopBar({ onCommandPaletteOpen, sidebarCollapsed, onToggleCollaps
                           {formatDistanceToNow(email.timestamp)}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{email.subject}</p>
-                      <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">{email.preview}</p>
+                      <p className="text-xs text-muted-foreground truncate">{decodeHtmlEntities(email.subject)}</p>
+                      <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">{decodeHtmlEntities(email.preview)}</p>
                     </div>
                   </button>
                 ))}

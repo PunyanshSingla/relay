@@ -61,7 +61,10 @@ const aiItems: NavItem[] = [
 
 interface SidebarProps {
   collapsed?: boolean;
+  mobileOpen?: boolean;
   onToggleCollapse?: () => void;
+  onCloseMobile?: () => void;
+  isMobile?: boolean;
 }
 
 function NavLink({
@@ -117,7 +120,7 @@ function NavLink({
   return link;
 }
 
-export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ collapsed = false, mobileOpen = false, onToggleCollapse, onCloseMobile, isMobile = false }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const unreadCount = useUnreadCount();
@@ -137,12 +140,28 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   ];
 
   return (
-    <aside
-      className={cn(
-        "flex h-full flex-col border-r border-border bg-card transition-all duration-200 relative",
-        collapsed ? "w-16" : "w-64"
+    <>
+      {/* Mobile backdrop */}
+      {isMobile && mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={onCloseMobile}
+        />
       )}
-    >
+
+      <aside
+        className={cn(
+          "flex h-full flex-col border-r border-border bg-card transition-all duration-200 relative z-50",
+          isMobile
+            ? cn(
+                "fixed inset-y-0 left-0 w-64",
+                mobileOpen ? "translate-x-0" : "-translate-x-full"
+              )
+            : cn(
+                collapsed ? "w-16" : "w-64"
+              )
+        )}
+      >
       {/* Logo */}
       <div className="flex h-14 items-center border-b border-border px-4">
         {collapsed ? (
@@ -253,19 +272,22 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
         </div>
       )}
 
-      {/* Edge handle - visible on hover, positioned on right border */}
-      <button
-        type="button"
-        onClick={onToggleCollapse}
-        className="absolute top-1/2 -right-3 z-10 flex h-10 w-3 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground opacity-0 transition-all hover:opacity-100 hover:w-5 hover:shadow-sm"
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {collapsed ? (
-          <PanelLeftOpen className="size-3" />
-        ) : (
-          <PanelLeftClose className="size-3" />
-        )}
-      </button>
-    </aside>
+      {/* Edge handle - visible on hover, positioned on right border (desktop only) */}
+      {!isMobile && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="absolute top-1/2 -right-3 z-10 flex h-10 w-3 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground opacity-0 transition-all hover:opacity-100 hover:w-5 hover:shadow-sm"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="size-3" />
+          ) : (
+            <PanelLeftClose className="size-3" />
+          )}
+        </button>
+      )}
+      </aside>
+    </>
   );
 }

@@ -8,6 +8,12 @@ import { cn } from "@/lib/utils";
 import type { Email, Priority, Category } from "@/types/email";
 import { formatDistanceToNow } from "@/lib/format-date";
 
+function decodeHtmlEntities(text: string): string {
+  const el = document.createElement("textarea");
+  el.innerHTML = text;
+  return el.value;
+}
+
 const PRIORITY_CONFIG: Record<Priority, { dot: string; badge: string; label: string }> = {
   P1: { dot: "bg-red-500", badge: "bg-red-500/10 text-red-500 border-red-500/20", label: "P1" },
   P2: { dot: "bg-amber-500", badge: "bg-amber-500/10 text-amber-500 border-amber-500/20", label: "P2" },
@@ -110,17 +116,20 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
           >
             {email.from.name}
           </span>
-          <span className="text-xs text-muted-foreground shrink-0">{timeAgo}</span>
+          <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">{timeAgo}</span>
         </div>
         <p
           className={cn(
             "text-sm truncate mt-0.5",
             !email.read ? "font-medium text-foreground" : "text-muted-foreground"
           )}
+          title={decodeHtmlEntities(email.subject)}
         >
-          {email.subject}
+          {decodeHtmlEntities(email.subject)}
         </p>
-        <p className="text-xs text-muted-foreground mt-0.5" title={email.preview}>{email.preview.length > 120 ? email.preview.slice(0, 120) + "..." : email.preview}</p>
+        <p className="text-xs text-muted-foreground mt-0.5" title={decodeHtmlEntities(email.preview)}>
+          {decodeHtmlEntities(email.preview).length > 120 ? decodeHtmlEntities(email.preview).slice(0, 120) + "..." : decodeHtmlEntities(email.preview)}
+        </p>
       </div>
 
       {/* Right side: badges + star */}
@@ -139,7 +148,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
         {!email.isClassified ? (
           <Badge
             variant="outline"
-            className="text-[10px] px-1.5 py-0 h-4 font-medium bg-muted text-muted-foreground border-muted animate-pulse"
+            className="text-[10px] px-1.5 py-0 h-4 font-medium bg-muted text-muted-foreground border-muted animate-pulse hidden sm:inline-flex"
           >
             Processing...
           </Badge>
@@ -148,7 +157,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
             {priorityConfig && (
               <Badge
                 variant="outline"
-                className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", priorityConfig.badge)}
+                className={cn("text-[10px] px-1.5 py-0 h-4 font-medium hidden sm:inline-flex", priorityConfig.badge)}
               >
                 {priorityConfig.label}
               </Badge>
@@ -156,7 +165,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
             {categoryConfig && (
               <Badge
                 variant="outline"
-                className={cn("text-[10px] px-1.5 py-0 h-4 font-medium", categoryConfig.badge)}
+                className={cn("text-[10px] px-1.5 py-0 h-4 font-medium hidden sm:inline-flex", categoryConfig.badge)}
               >
                 {categoryConfig.label}
               </Badge>
@@ -164,7 +173,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
           </>
         )}
         {email.hasAttachment && (
-          <Paperclip className="size-3 text-muted-foreground" />
+          <Paperclip className="size-3 text-muted-foreground hidden sm:block" />
         )}
       </div>
     </button>
