@@ -7,8 +7,8 @@ export const generateUserBriefJob = inngest.createFunction(
   {
     id: "generate-user-brief",
     retries: 1,
+    triggers: [{ event: "brief/generate" }],
   },
-  { event: "brief/generate" },
   async ({ event: { data }, step }) => {
     const { userId } = data;
 
