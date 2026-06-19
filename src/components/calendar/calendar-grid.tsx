@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -34,40 +33,6 @@ export function CalendarGrid({
 }: CalendarGridProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-
-  // Keyboard navigation
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-    const clone = new Date(currentDate);
-
-    switch (e.key) {
-      case "ArrowLeft":
-        clone.setDate(clone.getDate() - 1);
-        onDateChange(clone);
-        break;
-      case "ArrowRight":
-        clone.setDate(clone.getDate() + 1);
-        onDateChange(clone);
-        break;
-      case "ArrowUp":
-        clone.setDate(clone.getDate() - (view === "month" ? 7 : 1));
-        onDateChange(clone);
-        break;
-      case "ArrowDown":
-        clone.setDate(clone.getDate() + (view === "month" ? 7 : 1));
-        onDateChange(clone);
-        break;
-      case "t":
-        onDateChange(new Date());
-        break;
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
 
   // Title
   const title = (() => {
