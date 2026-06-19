@@ -19,10 +19,10 @@ export function Footer() {
         </div>
         <div className="flex items-center gap-5 text-sm text-muted-foreground">
           <Button variant="link" asChild className="h-auto p-0 text-muted-foreground hover:text-foreground">
-            <Link href="#">Privacy</Link>
+            <Link href="/privacy">Privacy</Link>
           </Button>
           <Button variant="link" asChild className="h-auto p-0 text-muted-foreground hover:text-foreground">
-            <Link href="#">Terms</Link>
+            <Link href="/terms">Terms</Link>
           </Button>
           <Button variant="link" asChild className="h-auto p-0 text-muted-foreground hover:text-foreground">
             <Link href="#">
