@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function Logo() {
     return (
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
             <div
                 className="relative flex size-8 items-center justify-center rounded-lg"
                 style={{ background: "var(--gradient-primary)" }}
