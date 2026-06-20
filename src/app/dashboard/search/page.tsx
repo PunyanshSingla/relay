@@ -120,6 +120,22 @@ function SearchContent() {
                   }),
                 });
               }}
+              onArchive={(id) => {
+                setEmails((prev) => prev.filter((e) => e.id !== id));
+                fetch(`/api/emails/${id}/action`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "archive" }),
+                });
+              }}
+              onTrash={(id) => {
+                setEmails((prev) => prev.filter((e) => e.id !== id));
+                fetch(`/api/emails/${id}/action`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "trash" }),
+                });
+              }}
               loading={false}
               loadingMore={false}
               hasMore={false}

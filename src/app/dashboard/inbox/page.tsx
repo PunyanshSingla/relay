@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Pencil, RefreshCw, CheckCheck, X, Star, Paperclip } from "lucide-react";
+import { Pencil, RefreshCw, CheckCheck, X, Star, Paperclip, Archive, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { mutate as globalMutate } from "swr";
 import { Button } from "@/components/ui/button";
@@ -192,6 +192,56 @@ function InboxPage() {
     }
   };
 
+  const handleArchive = async (id: string) => {
+    globalMutate(
+      (key: string) => typeof key === "string" && key.startsWith("/api/emails"),
+      (current) => {
+        if (!current) return current;
+        return (current as Array<{ emails: Email[] } | null>).map((page) => {
+          if (!page) return page;
+          return { ...page, emails: page.emails.filter((e: Email) => e.id !== id) };
+        });
+      },
+      { revalidate: false },
+    );
+    globalMutate("/api/emails/counts");
+    try {
+      await fetch(`/api/emails/${id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
+    } catch {
+      mutate();
+      globalMutate("/api/emails/counts");
+    }
+  };
+
+  const handleTrash = async (id: string) => {
+    globalMutate(
+      (key: string) => typeof key === "string" && key.startsWith("/api/emails"),
+      (current) => {
+        if (!current) return current;
+        return (current as Array<{ emails: Email[] } | null>).map((page) => {
+          if (!page) return page;
+          return { ...page, emails: page.emails.filter((e: Email) => e.id !== id) };
+        });
+      },
+      { revalidate: false },
+    );
+    globalMutate("/api/emails/counts");
+    try {
+      await fetch(`/api/emails/${id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "trash" }),
+      });
+    } catch {
+      mutate();
+      globalMutate("/api/emails/counts");
+    }
+  };
+
   const handleMarkAllRead = async () => {
     const unreadIds: string[] = [];
     for (const e of emails) {
@@ -304,6 +354,8 @@ function InboxPage() {
             activeFilter={activeFilter}
             onSelect={(id) => router.push(`/dashboard/inbox/${id}`)}
             onToggleStar={handleToggleStar}
+            onArchive={handleArchive}
+            onTrash={handleTrash}
             onEmptyTrash={async () => {
               if (!confirm("Permanently delete all emails in trash?")) return;
               try {
@@ -328,6 +380,8 @@ function InboxPage() {
             selectedId={null}
             onSelect={(id) => router.push(`/dashboard/inbox/${id}`)}
             onToggleStar={handleToggleStar}
+            onArchive={handleArchive}
+            onTrash={handleTrash}
             loading={loading}
             loadingMore={isValidating && emails.length > 0}
             hasMore={hasMore}
@@ -348,6 +402,8 @@ function PriorityEmailList({
   activeFilter,
   onSelect,
   onToggleStar,
+  onArchive,
+  onTrash,
   onEmptyTrash,
   loading,
   loadingMore,
@@ -360,6 +416,8 @@ function PriorityEmailList({
   activeFilter: FilterId;
   onSelect: (id: string) => void;
   onToggleStar: (id: string) => void;
+  onArchive: (id: string) => void;
+  onTrash: (id: string) => void;
   onEmptyTrash: () => void;
   loading: boolean;
   loadingMore: boolean;
@@ -411,6 +469,8 @@ function PriorityEmailList({
           delay={0}
           onSelect={onSelect}
           onToggleStar={onToggleStar}
+          onArchive={onArchive}
+          onTrash={onTrash}
         />
 
         {/* P2 — Important emails, fade in after P1 */}
@@ -421,6 +481,8 @@ function PriorityEmailList({
           delay={150}
           onSelect={onSelect}
           onToggleStar={onToggleStar}
+          onArchive={onArchive}
+          onTrash={onTrash}
         />
 
         {/* P3 — Low priority, fade in last */}
@@ -431,6 +493,8 @@ function PriorityEmailList({
           delay={300}
           onSelect={onSelect}
           onToggleStar={onToggleStar}
+          onArchive={onArchive}
+          onTrash={onTrash}
         />
 
         {isSyncing && emails.length === 0 && (
@@ -487,6 +551,8 @@ function PriorityGroup({
   delay,
   onSelect,
   onToggleStar,
+  onArchive,
+  onTrash,
 }: {
   label: string;
   emails: Email[];
@@ -494,6 +560,8 @@ function PriorityGroup({
   delay: number;
   onSelect: (id: string) => void;
   onToggleStar: (id: string) => void;
+  onArchive: (id: string) => void;
+  onTrash: (id: string) => void;
 }) {
   if (emails.length === 0) return null;
 
@@ -515,6 +583,8 @@ function PriorityGroup({
             email={email}
             onSelect={onSelect}
             onToggleStar={onToggleStar}
+            onArchive={onArchive}
+            onTrash={onTrash}
           />
         </div>
       ))}
@@ -526,10 +596,14 @@ function EmailItemCompact({
   email,
   onSelect,
   onToggleStar,
+  onArchive,
+  onTrash,
 }: {
   email: Email;
   onSelect: (id: string) => void;
   onToggleStar: (id: string) => void;
+  onArchive: (id: string) => void;
+  onTrash: (id: string) => void;
 }) {
   const avatarColor = getAvatarColor(email.from.name);
   const timeAgo = formatDistanceToNow(email.timestamp);
@@ -539,7 +613,7 @@ function EmailItemCompact({
       type="button"
       onClick={() => onSelect(email.id)}
       className={cn(
-        "flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border",
+        "group relative flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border",
         "hover:bg-muted/50 border-l-2 border-l-transparent",
         !email.read && "bg-muted/30"
       )}
@@ -605,7 +679,7 @@ function EmailItemCompact({
         </p>
       </div>
 
-      {/* Right side */}
+      {/* Right side: star + badges */}
       <div className="flex flex-col items-end gap-1 shrink-0">
         <button
           type="button"
@@ -672,6 +746,32 @@ function EmailItemCompact({
         {email.hasAttachment && (
           <Paperclip className="size-3 text-muted-foreground" />
         )}
+      </div>
+
+      {/* Hover action buttons — Gmail-style */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-sm p-0.5">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onArchive(email.id);
+          }}
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          title="Archive"
+        >
+          <Archive className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onTrash(email.id);
+          }}
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive transition-colors"
+          title="Delete"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
       </div>
     </button>
   );

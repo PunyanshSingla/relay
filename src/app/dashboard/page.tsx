@@ -154,7 +154,7 @@ export default function DashboardPage() {
     await fetch(`/api/automations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "accepted" }),
+      body: JSON.stringify({ status: "enabled" }),
     });
     mutateAutomations();
   };
@@ -167,6 +167,26 @@ export default function DashboardPage() {
     });
     mutateAutomations();
   };
+
+  function describeSuggestion(auto: Automation): string {
+    const action = ACTION_LABELS[auto.actionType] ?? auto.actionType;
+    if (auto.actionType === "ai_reply") {
+      return `Auto-draft replies to emails from ${auto.target || "detected senders"}`;
+    }
+    if (auto.actionType === "star_email") {
+      return `Auto-star emails from ${auto.target || "VIP contacts"}`;
+    }
+    if (auto.actionType === "archive_email") {
+      return `Auto-archive emails matching ${auto.target || "this pattern"}`;
+    }
+    if (auto.actionType === "forward_email") {
+      return `Auto-forward emails from ${auto.target || "this sender"}`;
+    }
+    if (auto.actionType === "apply_label") {
+      return `Auto-label emails from ${auto.target || "this sender"}`;
+    }
+    return `${action} ${auto.target ? `for ${auto.target}` : ""}`.trim();
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -381,9 +401,9 @@ export default function DashboardPage() {
               {automations.map((auto) => (
                 <div key={auto.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm">{auto.description}</p>
+                    <p className="text-sm font-medium">{describeSuggestion(auto)}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {ACTION_LABELS[auto.actionType] ?? auto.actionType} · {auto.count} times
+                      Detected {auto.count} time{auto.count !== 1 ? "s" : ""} in the last 30 days
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">

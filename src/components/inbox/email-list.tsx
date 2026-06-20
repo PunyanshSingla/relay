@@ -10,6 +10,8 @@ interface EmailListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onToggleStar: (id: string) => void;
+  onArchive: (id: string) => void;
+  onTrash: (id: string) => void;
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
@@ -52,6 +54,8 @@ export function EmailList({
   selectedId,
   onSelect,
   onToggleStar,
+  onArchive,
+  onTrash,
   loading,
   loadingMore,
   hasMore,
@@ -106,6 +110,8 @@ export function EmailList({
             isSelected={email.id === selectedId}
             onSelect={onSelect}
             onToggleStar={onToggleStar}
+            onArchive={onArchive}
+            onTrash={onTrash}
           />
         ))}
 
