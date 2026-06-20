@@ -13,6 +13,17 @@ export const classifyBatchJob = inngest.createFunction(
     id: "classify-batch",
     triggers: [{ event: "email/batch-classify" }],
     retries: 2,
+    timeouts: { finish: "15m" },
+    onFailure: async ({ event }) => {
+      const failureEvent = event.data as unknown as {
+        event: { data: { userId: string } };
+      };
+      const userId = failureEvent.event.data.userId;
+      await upsertSyncState(userId, {
+        phase: "idle",
+        lastError: "Classification failed after retries",
+      });
+    },
   },
   async ({ event, step }) => {
     const { userId } = event.data as { userId: string };

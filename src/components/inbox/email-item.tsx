@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { Star, Paperclip } from "lucide-react";
+import { Star, Paperclip, Archive, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { mutate } from "swr";
 import { cn } from "@/lib/utils";
@@ -61,9 +61,11 @@ interface EmailItemProps {
   isSelected: boolean;
   onSelect: (id: string) => void;
   onToggleStar: (id: string) => void;
+  onArchive: (id: string) => void;
+  onTrash: (id: string) => void;
 }
 
-export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailItemProps) {
+export function EmailItem({ email, isSelected, onSelect, onToggleStar, onArchive, onTrash }: EmailItemProps) {
   const priorityConfig = email.priority ? PRIORITY_CONFIG[email.priority] : null;
   const categoryConfig = email.category ? CATEGORY_CONFIG[email.category] : null;
   const avatarColor = getAvatarColor(email.from.name);
@@ -78,7 +80,7 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
       onClick={() => onSelect(email.id)}
       onMouseEnter={handlePrefetch}
       className={cn(
-        "flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border",
+        "group relative flex w-full items-start gap-3 p-3 text-left transition-colors border-b border-border",
         isSelected
           ? "bg-primary/5 border-l-2 border-l-primary"
           : "hover:bg-muted/50 border-l-2 border-l-transparent",
@@ -175,6 +177,32 @@ export function EmailItem({ email, isSelected, onSelect, onToggleStar }: EmailIt
         {email.hasAttachment && (
           <Paperclip className="size-3 text-muted-foreground hidden sm:block" />
         )}
+      </div>
+
+      {/* Hover action buttons — Gmail-style */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-sm p-0.5">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onArchive(email.id);
+          }}
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          title="Archive"
+        >
+          <Archive className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onTrash(email.id);
+          }}
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive transition-colors"
+          title="Delete"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
       </div>
     </button>
   );

@@ -43,3 +43,6 @@
 # shortcuts
 - Do not use single-letter global keyboard shortcuts (e.g., 'c' for compose) — they interfere with normal typing in input fields. Confidence: 0.70
 
+# timeouts
+- Use a 15-minute finish timeout for classify-batch Inngest function to allow adequate processing time for LLM classification. Confidence: 0.65
+
